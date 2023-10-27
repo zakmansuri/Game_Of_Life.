@@ -16,9 +16,11 @@ type distributorChannels struct {
 
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p Params, c distributorChannels) {
-	// TODO: Create a 2D slice to store the world.
-	c.ioCommand <- ioInput
+
+	c.ioCommand <- ioInput //send command "ioInput" to io.go to start Read PGM file
 	c.ioFilename <- fmt.Sprintf("%d%s%d", p.ImageHeight, "x", p.ImageWidth)
+	//send filename along IoFilename to continue read PGM
+
 	IMHT := p.ImageHeight
 	IMWD := p.ImageWidth
 	world := make([][]byte, IMHT)
@@ -31,7 +33,7 @@ func distributor(p Params, c distributorChannels) {
 
 	turn := 0
 	// TODO: Execute all turns of the Game of Life.
-	for turn <= p.Turns {
+	for turn < p.Turns {
 		world = calculateNextState(p, world)
 		turn++
 	}
