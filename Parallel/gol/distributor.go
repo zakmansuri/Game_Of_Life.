@@ -38,13 +38,13 @@ func OutPutWorldImage(c distributorChannels, p Params, world [][]byte, turn int)
 }
 
 // finds all alive cells and puts them in a slice
-func calculateAliveCells(w, h int, world [][]byte) []util.Cell {
+func calculateAliveCells(IMWD, IMHT int, world [][]byte) []util.Cell {
 
 	var slice []util.Cell
-	for i := 0; i < h; i++ {
-		for j := 0; j < w; j++ {
-			if world[i][j] == 0xFF {
-				slice = append(slice, util.Cell{i, j})
+	for y := 0; y < IMHT; y++ {
+		for x := 0; x < IMWD; x++ {
+			if world[y][x] == 255 {
+				slice = append(slice, util.Cell{x, y})
 			}
 		}
 	}
@@ -53,47 +53,56 @@ func calculateAliveCells(w, h int, world [][]byte) []util.Cell {
 }
 
 // sums up the number of alive cells around a specific cell
-func countAliveCellsAroundCell(p Params, world [][]byte, x int, y int) byte {
-	sum := world[(y+p.ImageHeight-1)%p.ImageHeight][(x+p.ImageWidth-1)%p.ImageWidth] + world[(y+p.ImageHeight-1)%p.ImageHeight][(x+p.ImageWidth)%p.ImageWidth] +
-		world[(y+p.ImageHeight-1)%p.ImageHeight][(x+p.ImageWidth+1)%p.ImageWidth] + world[(y+p.ImageHeight)%p.ImageHeight][(x+p.ImageWidth-1)%p.ImageWidth] + world[(y+p.ImageHeight)%p.ImageHeight][(x+p.ImageWidth+1)%p.ImageWidth] +
-		world[(y+p.ImageHeight+1)%p.ImageHeight][(x+p.ImageWidth-1)%p.ImageWidth] + world[(y+p.ImageHeight+1)%p.ImageHeight][(x+p.ImageWidth)%p.ImageWidth] +
-		world[(y+p.ImageHeight+1)%p.ImageHeight][(x+p.ImageWidth+1)%p.ImageWidth]
+//func countAliveCellsAroundCell(p Params, world [][]byte, x int, y int) byte {
+//	sum := world[(y+p.ImageHeight-1)%p.ImageHeight][(x+p.ImageWidth-1)%p.ImageWidth] + world[(y+p.ImageHeight-1)%p.ImageHeight][(x+p.ImageWidth)%p.ImageWidth] +
+//		world[(y+p.ImageHeight-1)%p.ImageHeight][(x+p.ImageWidth+1)%p.ImageWidth] + world[(y+p.ImageHeight)%p.ImageHeight][(x+p.ImageWidth-1)%p.ImageWidth] + world[(y+p.ImageHeight)%p.ImageHeight][(x+p.ImageWidth+1)%p.ImageWidth] +
+//		world[(y+p.ImageHeight+1)%p.ImageHeight][(x+p.ImageWidth-1)%p.ImageWidth] + world[(y+p.ImageHeight+1)%p.ImageHeight][(x+p.ImageWidth)%p.ImageWidth] +
+//		world[(y+p.ImageHeight+1)%p.ImageHeight][(x+p.ImageWidth+1)%p.ImageWidth]
+//
+//	return sum
+//}
 
-	return sum
-}
+func updateNextState(p Params, world [][]byte, nextState [][]byte, bh int, h int, t int, c distributorChannels) [][]byte {
 
-func updateW(p Params, world [][]byte, world2 [][]byte, bh int, h int, t int, c distributorChannels) [][]byte {
+	for y := bh; y <= h; y++ {
+		for x := 0; x < (p.ImageWidth); x++ {
 
-	for i := bh; i <= h; i++ {
-		for j := 0; j < (p.ImageWidth); j++ {
+			//count := countAliveCellsAroundCell(p, world, j, i)
+			//count = 255 - count + 1
 
-			count := countAliveCellsAroundCell(p, world, j, i)
-			count = 255 - count + 1
+			sum := (int(world[(y+p.ImageHeight-1)%p.ImageHeight][(x+p.ImageWidth-1)%p.ImageWidth]) +
+				int(world[(y+p.ImageHeight-1)%p.ImageHeight][(x+p.ImageWidth)%p.ImageWidth]) +
+				int(world[(y+p.ImageHeight-1)%p.ImageHeight][(x+p.ImageWidth+1)%p.ImageWidth]) +
+				int(world[(y+p.ImageHeight)%p.ImageHeight][(x+p.ImageWidth-1)%p.ImageWidth]) +
+				int(world[(y+p.ImageHeight)%p.ImageHeight][(x+p.ImageWidth+1)%p.ImageWidth]) +
+				int(world[(y+p.ImageHeight+1)%p.ImageHeight][(x+p.ImageWidth-1)%p.ImageWidth]) +
+				int(world[(y+p.ImageHeight+1)%p.ImageHeight][(x+p.ImageWidth)%p.ImageWidth]) +
+				int(world[(y+p.ImageHeight+1)%p.ImageHeight][(x+p.ImageWidth+1)%p.ImageWidth])) / 255
 
-			if world[i][j] == 0xFF {
-				if count < 2 {
-					world2[i][j] = 0x00
-					c.events <- CellFlipped{t, util.Cell{j, i}}
-				} else if count == 2 || count == 3 {
-					world2[i][j] = 0xFF
+			if world[y][x] == 255 {
+				if sum < 2 {
+					nextState[y][x] = 0
+					c.events <- CellFlipped{t, util.Cell{x, y}}
+				} else if sum == 2 || sum == 3 {
+					nextState[y][x] = 255
 				} else {
-					world2[i][j] = 0x00
-					c.events <- CellFlipped{t, util.Cell{j, i}}
+					nextState[y][x] = 0
+					c.events <- CellFlipped{t, util.Cell{x, y}}
 				}
 			} else {
-				if count == 3 {
-					world2[i][j] = 0xFF
-					c.events <- CellFlipped{t, util.Cell{j, i}}
+				if sum == 3 {
+					nextState[y][x] = 255
+					c.events <- CellFlipped{t, util.Cell{x, y}}
 				} else {
-					world2[i][j] = 0x00
+					nextState[y][x] = 0
 				}
 			}
 		}
 	}
 
-	temp := world2[bh : h+1]
+	workerSlice := nextState[bh : h+1]
 
-	return temp
+	return workerSlice
 }
 
 // goes through 2D array to get number of alive cells
@@ -124,7 +133,7 @@ func distributor(p Params, c distributorChannels) {
 	for i := 0; i < p.ImageHeight; i++ {
 		for j := 0; j < p.ImageWidth; j++ {
 			world[j][i] = <-c.ioInput
-			if world[j][i] == 0xFF {
+			if world[j][i] == 255 {
 				c.events <- CellFlipped{0, util.Cell{i, j}}
 			}
 		}
@@ -144,8 +153,8 @@ func distributor(p Params, c distributorChannels) {
 	// Executes all turns of the Game of Life.
 	for turn = 0; turn < p.Turns; turn++ {
 
-		bh := 0
-		h := -1
+		bh := 0 // base height for the index of the world for worker
+		h := -1 // end index of the world for worker
 		var sChanW []chan [][]byte
 
 		for i := 0; i < p.Threads; i++ {
@@ -187,12 +196,15 @@ func distributor(p Params, c distributorChannels) {
 			case 's':
 				c.events <- StateChange{turn + 1, Executing}
 				OutPutWorldImage(c, p, world, turn+1)
+				//saves the game into file
 			case 'q':
 				c.events <- StateChange{turn + 1, Quitting}
 				qStatus = true
+				//quits the game and stops processing
 			case 'p':
 				c.events <- StateChange{turn + 1, Paused}
 				OutPutWorldImage(c, p, world, turn+1)
+				//pauses and outputs the game
 				pStatus := 0
 
 				for {
@@ -203,6 +215,7 @@ func distributor(p Params, c distributorChannels) {
 						c.events <- StateChange{turn + 1, Executing}
 						c.events <- TurnComplete{turn + 1}
 						pStatus = 1
+						break
 					}
 					if pStatus == 1 {
 						break
