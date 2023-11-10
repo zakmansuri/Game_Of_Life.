@@ -151,7 +151,7 @@ func distributor(p Params, c distributorChannels) {
 	done := make(chan bool, 1)
 
 	// Executes all turns of the Game of Life.
-	for turn = 0; turn < p.Turns; turn++ {
+	for turn < p.Turns {
 
 		bh := 0 // base height for the index of the world for worker
 		h := -1 // end index of the world for worker
@@ -228,7 +228,7 @@ func distributor(p Params, c distributorChannels) {
 		if qStatus == true {
 			break
 		}
-
+		turn++
 	}
 
 	done <- false
