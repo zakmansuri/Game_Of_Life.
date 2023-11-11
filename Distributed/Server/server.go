@@ -9,7 +9,7 @@ import (
 	"uk.ac.bris.cs/gameoflife/stubs"
 )
 
-func UpdateState(world [][]byte, IMHT, IMWD int) [][]byte {
+func calculateNextState(world [][]byte, IMHT, IMWD int) [][]byte {
 
 	newWorld := make([][]byte, IMHT)
 	for i := range newWorld {
@@ -68,7 +68,7 @@ type GOLOperations struct{}
 func (u *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResponse) (err error) {
 	turn := 0
 	for turn < req.Turns {
-		req.World = UpdateState(req.World, req.ImageHeight, req.ImageWidth)
+		req.World = calculateNextState(req.World, req.ImageHeight, req.ImageWidth)
 		turn++
 	}
 	res.World = req.World

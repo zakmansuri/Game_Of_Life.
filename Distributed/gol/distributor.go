@@ -2,7 +2,6 @@ package gol
 
 import (
 	"flag"
-	"fmt"
 	"net/rpc"
 	"strconv"
 	"uk.ac.bris.cs/gameoflife/stubs"
@@ -40,9 +39,9 @@ func distributor(p Params, c distributorChannels) {
 	t = t + "x" + t
 	c.ioCommand <- ioInput
 	c.ioFilename <- t
-	world := make([][]uint8, p.ImageHeight)
+	world := make([][]byte, p.ImageHeight)
 	for i := range world {
-		world[i] = make([]uint8, p.ImageWidth)
+		world[i] = make([]byte, p.ImageWidth)
 	}
 	for i := 0; i < p.ImageHeight; i++ {
 		for j := 0; j < p.ImageWidth; j++ {
@@ -52,18 +51,20 @@ func distributor(p Params, c distributorChannels) {
 
 	server := flag.String("server", "127.0.0.1:8030", "IP:port string to connect to as server")
 	flag.Parse()
-	fmt.Println("Server: ", *server)
 	client, _ := rpc.Dial("tcp", *server)
 	defer client.Close()
 	updateRequest := stubs.StateRequest{World: world,
 		ImageHeight: p.ImageHeight,
 		ImageWidth:  p.ImageWidth,
-		Turns:       p.Turns,
-		Threads:     p.Threads}
+		Threads:     p.Threads,
+		Turns:       p.Turns}
 
 	updateResponse := new(stubs.StateResponse)
 	client.Call(stubs.UpdateStateHandler, updateRequest, updateResponse)
-	world = updateResponse.World
+	//fmt.Print(updateResponse.World)
+	//world = updateResponse.World
+	//fmt.Print('\n')
+	//fmt.Print(world)
 	//cellCountRequest := stubs.StateRequest{
 	//	World:       world,
 	//	ImageHeight: p.ImageHeight,
@@ -73,7 +74,7 @@ func distributor(p Params, c distributorChannels) {
 	//cellCountResponse := new(stubs.CellCountResponse)
 	//client.Call(stubs.GetAliveCellsHandler, cellCountRequest, cellCountResponse)
 	var alive []util.Cell
-	alive = findAliveCells(world, p.ImageWidth, p.ImageHeight)
+	alive = findAliveCells(updateResponse.World, p.ImageWidth, p.ImageHeight)
 
 	c.events <- FinalTurnComplete{p.Turns, alive}
 
