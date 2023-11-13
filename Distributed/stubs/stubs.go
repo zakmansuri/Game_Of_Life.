@@ -3,7 +3,7 @@ package stubs
 import "uk.ac.bris.cs/gameoflife/util"
 
 var UpdateStateHandler = "GOLOperations.UpdateState"
-var GetAliveCellsHandler = "GOLOperations.GetAliveCellCount"
+var GetAliveCellsHandler = "GOLOperations.GetAliveCells"
 
 type StateResponse struct {
 	World [][]byte

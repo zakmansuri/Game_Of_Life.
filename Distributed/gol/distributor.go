@@ -8,6 +8,8 @@ import (
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
+var server = flag.String("server", "127.0.0.1:8030", "IP:port string to connect to as server")
+
 type distributorChannels struct {
 	events     chan<- Event
 	ioCommand  chan<- ioCommand
@@ -49,11 +51,12 @@ func distributor(p Params, c distributorChannels) {
 		}
 	}
 
-	server := flag.String("server", "127.0.0.1:8030", "IP:port string to connect to as server")
 	flag.Parse()
 	client, _ := rpc.Dial("tcp", *server)
 	defer client.Close()
-	updateRequest := stubs.StateRequest{World: world,
+
+	updateRequest := stubs.StateRequest{
+		World:       world,
 		ImageHeight: p.ImageHeight,
 		ImageWidth:  p.ImageWidth,
 		Threads:     p.Threads,
@@ -61,20 +64,21 @@ func distributor(p Params, c distributorChannels) {
 
 	updateResponse := new(stubs.StateResponse)
 	client.Call(stubs.UpdateStateHandler, updateRequest, updateResponse)
-	//fmt.Print(updateResponse.World)
-	//world = updateResponse.World
-	//fmt.Print('\n')
-	//fmt.Print(world)
-	//cellCountRequest := stubs.StateRequest{
-	//	World:       world,
-	//	ImageHeight: p.ImageHeight,
-	//	ImageWidth:  p.ImageWidth,
-	//	Turns:       p.Turns,
-	//	Threads:     p.Threads}
-	//cellCountResponse := new(stubs.CellCountResponse)
-	//client.Call(stubs.GetAliveCellsHandler, cellCountRequest, cellCountResponse)
-	var alive []util.Cell
-	alive = findAliveCells(updateResponse.World, p.ImageWidth, p.ImageHeight)
+	world = updateResponse.World
+
+	cellCountRequest := stubs.StateRequest{
+		World:       world,
+		ImageHeight: p.ImageHeight,
+		ImageWidth:  p.ImageWidth,
+		Turns:       p.Turns,
+		Threads:     p.Threads}
+
+	cellCountResponse := new(stubs.CellCountResponse)
+	client.Call(stubs.GetAliveCellsHandler, cellCountRequest, cellCountResponse)
+
+	var alive = cellCountResponse.Cells
+
+	//fmt.Printf("Alive Cell Count: %d\n", len(alive))
 
 	c.events <- FinalTurnComplete{p.Turns, alive}
 

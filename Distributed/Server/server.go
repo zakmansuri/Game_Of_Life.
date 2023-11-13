@@ -7,6 +7,7 @@ import (
 	"net/rpc"
 	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
+	"uk.ac.bris.cs/gameoflife/util"
 )
 
 func calculateNextState(world [][]byte, IMHT, IMWD int) [][]byte {
@@ -16,7 +17,7 @@ func calculateNextState(world [][]byte, IMHT, IMWD int) [][]byte {
 		newWorld[i] = make([]byte, IMWD)
 	}
 
-	for y := 0; y <= IMHT; y++ {
+	for y := 0; y < IMHT; y++ {
 		for x := 0; x < IMWD; x++ {
 
 			sum := (int(world[(y+IMHT-1)%IMHT][(x+IMWD-1)%IMWD]) +
@@ -49,19 +50,17 @@ func calculateNextState(world [][]byte, IMHT, IMWD int) [][]byte {
 	return newWorld
 }
 
-//func GetAliveCells(world [][]byte, IMHT, IMWD int) []util.Cell {
-//
-//	var slice []util.Cell
-//	for y := 0; y < IMHT; y++ {
-//		for x := 0; x < IMWD; x++ {
-//			if world[y][x] == 0xFF {
-//				slice = append(slice, util.Cell{y, x})
-//			}
-//		}
-//	}
-//
-//	return slice
-//}
+func calculateAliveCells(world [][]byte, IMHT, IMWD int) []util.Cell {
+	var slice []util.Cell
+	for y := 0; y < IMHT; y++ {
+		for x := 0; x < IMWD; x++ {
+			if world[y][x] == 0xFF {
+				slice = append(slice, util.Cell{y, x})
+			}
+		}
+	}
+	return slice
+}
 
 type GOLOperations struct{}
 
@@ -75,10 +74,10 @@ func (u *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResp
 	return
 }
 
-//func (u *GOLOperations) GetAliveCellCount(req stubs.StateRequest, res *stubs.CellCountResponse) (err error) {
-//	res.Cells = GetAliveCells(req.World, req.ImageHeight, req.ImageWidth)
-//	return
-//}
+func (u *GOLOperations) GetAliveCells(req stubs.StateRequest, res *stubs.CellCountResponse) (err error) {
+	res.Cells = calculateAliveCells(req.World, req.ImageHeight, req.ImageWidth)
+	return
+}
 
 func main() {
 	pAddr := flag.String("port", "8030", "Port to listen on")
