@@ -4,6 +4,7 @@ import "uk.ac.bris.cs/gameoflife/util"
 
 var UpdateStateHandler = "GOLOperations.UpdateState"
 var GetAliveCellsHandler = "GOLOperations.GetAliveCells"
+var CalculateTotalAliveCellsHandler = "GOLOperations.AliveCellCount"
 
 type StateResponse struct {
 	World [][]byte
@@ -17,6 +18,14 @@ type StateRequest struct {
 	Turns       int
 }
 
-type CellCountResponse struct {
+type AliveCellResponse struct {
 	Cells []util.Cell
+}
+
+type CellCountRequest struct {
+	World [][]byte
+}
+
+type CellCountResponse struct {
+	TotalCells int
 }

@@ -5,7 +5,6 @@ import (
 	"net/rpc"
 	"strconv"
 	"uk.ac.bris.cs/gameoflife/stubs"
-	"uk.ac.bris.cs/gameoflife/util"
 )
 
 var server = flag.String("server", "127.0.0.1:8030", "IP:port string to connect to as server")
@@ -18,20 +17,6 @@ type distributorChannels struct {
 	ioOutput   chan<- uint8
 	ioInput    <-chan uint8
 	keyPresses <-chan rune
-}
-
-func findAliveCells(world [][]byte, IMWD, IMHT int) []util.Cell {
-
-	var slice []util.Cell
-	for y := 0; y < IMHT; y++ {
-		for x := 0; x < IMWD; x++ {
-			if world[y][x] == 0xFF {
-				slice = append(slice, util.Cell{y, x})
-			}
-		}
-	}
-
-	return slice
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
@@ -63,6 +48,9 @@ func distributor(p Params, c distributorChannels) {
 		Turns:       p.Turns}
 
 	updateResponse := new(stubs.StateResponse)
+
+	//ticker := time.NewTicker(2 * time.Second)
+
 	client.Call(stubs.UpdateStateHandler, updateRequest, updateResponse)
 	world = updateResponse.World
 
@@ -73,7 +61,7 @@ func distributor(p Params, c distributorChannels) {
 		Turns:       p.Turns,
 		Threads:     p.Threads}
 
-	cellCountResponse := new(stubs.CellCountResponse)
+	cellCountResponse := new(stubs.AliveCellResponse)
 	client.Call(stubs.GetAliveCellsHandler, cellCountRequest, cellCountResponse)
 
 	var alive = cellCountResponse.Cells

@@ -62,6 +62,18 @@ func calculateAliveCells(world [][]byte, IMHT, IMWD int) []util.Cell {
 	return slice
 }
 
+func totalAliveCells(w [][]byte) int {
+	count := 0
+	for i := 0; i < len(w); i++ {
+		for j := 0; j < len(w[0]); j++ {
+			if w[i][j] == 255 {
+				count++
+			}
+		}
+	}
+	return count
+}
+
 type GOLOperations struct{}
 
 func (u *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResponse) (err error) {
@@ -74,8 +86,13 @@ func (u *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResp
 	return
 }
 
-func (u *GOLOperations) GetAliveCells(req stubs.StateRequest, res *stubs.CellCountResponse) (err error) {
+func (u *GOLOperations) GetAliveCells(req stubs.StateRequest, res *stubs.AliveCellResponse) (err error) {
 	res.Cells = calculateAliveCells(req.World, req.ImageHeight, req.ImageWidth)
+	return
+}
+
+func (u *GOLOperations) AliveCellCount(req stubs.CellCountRequest, res *stubs.CellCountResponse) (err error) {
+	res.TotalCells = totalAliveCells(req.World)
 	return
 }
 
