@@ -5,13 +5,19 @@ import (
 	"math/rand"
 	"net"
 	"net/rpc"
+	"sync"
 	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
-func calculateNextState(world [][]byte, IMHT, IMWD int) [][]byte {
+type GOLOperations struct {
+	Mu    sync.Mutex
+	World [][]byte
+	Turns int
+}
 
+func calculateNextState(world [][]byte, IMHT, IMWD int) [][]byte {
 	newWorld := make([][]byte, IMHT)
 	for i := range newWorld {
 		newWorld[i] = make([]byte, IMWD)
@@ -74,25 +80,33 @@ func totalAliveCells(w [][]byte) int {
 	return count
 }
 
-type GOLOperations struct{}
-
 func (u *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResponse) (err error) {
-	turn := 0
-	for turn < req.Turns {
-		req.World = calculateNextState(req.World, req.ImageHeight, req.ImageWidth)
-		turn++
+	u.Turns = 0
+	u.World = req.World
+	for u.Turns < req.Turns {
+		u.Mu.Lock()
+		//fmt.Print("State Locked\n")
+		u.World = calculateNextState(u.World, req.ImageHeight, req.ImageWidth)
+		u.Turns++
+		//fmt.Printf("State Unlocked : %d\n", u.Turns)
+		u.Mu.Unlock()
 	}
-	res.World = req.World
+	res.World = u.World
 	return
 }
 
-func (u *GOLOperations) GetAliveCells(req stubs.StateRequest, res *stubs.AliveCellResponse) (err error) {
-	res.Cells = calculateAliveCells(req.World, req.ImageHeight, req.ImageWidth)
+func (u *GOLOperations) GetAliveCells(req stubs.AliveCellRequest, res *stubs.AliveCellResponse) (err error) {
+	u.Mu.Lock()
+	defer u.Mu.Unlock()
+	res.Cells = calculateAliveCells(u.World, req.ImageHeight, req.ImageWidth)
 	return
 }
 
-func (u *GOLOperations) AliveCellCount(req stubs.CellCountRequest, res *stubs.CellCountResponse) (err error) {
-	res.TotalCells = totalAliveCells(req.World)
+func (u *GOLOperations) AliveCellCount(req stubs.EmptyRequest, res *stubs.CellCountResponse) (err error) {
+	u.Mu.Lock()
+	defer u.Mu.Unlock()
+	res.TotalCells = totalAliveCells(u.World)
+	res.TurnsComplete = u.Turns
 	return
 }
 

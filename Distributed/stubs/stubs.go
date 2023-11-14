@@ -18,14 +18,19 @@ type StateRequest struct {
 	Turns       int
 }
 
+type AliveCellRequest struct {
+	ImageHeight int
+	ImageWidth  int
+}
+
 type AliveCellResponse struct {
 	Cells []util.Cell
 }
 
-type CellCountRequest struct {
-	World [][]byte
+type EmptyRequest struct {
 }
 
 type CellCountResponse struct {
-	TotalCells int
+	TotalCells    int
+	TurnsComplete int
 }

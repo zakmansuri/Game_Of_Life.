@@ -2,8 +2,10 @@ package gol
 
 import (
 	"flag"
+	"log"
 	"net/rpc"
 	"strconv"
+	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
 )
 
@@ -37,7 +39,7 @@ func distributor(p Params, c distributorChannels) {
 	}
 
 	flag.Parse()
-	client, _ := rpc.Dial("tcp", *server)
+	client, err := rpc.Dial("tcp", *server)
 	defer client.Close()
 
 	updateRequest := stubs.StateRequest{
@@ -49,17 +51,27 @@ func distributor(p Params, c distributorChannels) {
 
 	updateResponse := new(stubs.StateResponse)
 
-	//ticker := time.NewTicker(2 * time.Second)
-
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				totalCellResponse := new(stubs.CellCountResponse)
+				err = client.Call(stubs.CalculateTotalAliveCellsHandler, stubs.EmptyRequest{}, totalCellResponse)
+				if err != nil {
+					log.Fatal("call error : ", err)
+				}
+				c.events <- AliveCellsCount{totalCellResponse.TurnsComplete, totalCellResponse.TotalCells}
+			}
+		}
+	}()
 	client.Call(stubs.UpdateStateHandler, updateRequest, updateResponse)
 	world = updateResponse.World
 
-	cellCountRequest := stubs.StateRequest{
-		World:       world,
+	cellCountRequest := stubs.AliveCellRequest{
 		ImageHeight: p.ImageHeight,
-		ImageWidth:  p.ImageWidth,
-		Turns:       p.Turns,
-		Threads:     p.Threads}
+		ImageWidth:  p.ImageWidth}
 
 	cellCountResponse := new(stubs.AliveCellResponse)
 	client.Call(stubs.GetAliveCellsHandler, cellCountRequest, cellCountResponse)
