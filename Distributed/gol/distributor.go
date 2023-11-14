@@ -25,9 +25,9 @@ type distributorChannels struct {
 func distributor(p Params, c distributorChannels) {
 
 	t := strconv.Itoa(p.ImageWidth)
-	t = t + "x" + t
+	fileName := t + "x" + t
 	c.ioCommand <- ioInput
-	c.ioFilename <- t
+	c.ioFilename <- fileName
 	world := make([][]byte, p.ImageHeight)
 	for i := range world {
 		world[i] = make([]byte, p.ImageWidth)
@@ -53,7 +53,6 @@ func distributor(p Params, c distributorChannels) {
 
 	go func() {
 		ticker := time.NewTicker(2 * time.Second)
-		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
@@ -61,10 +60,12 @@ func distributor(p Params, c distributorChannels) {
 				err = client.Call(stubs.CalculateTotalAliveCellsHandler, stubs.EmptyRequest{}, totalCellResponse)
 				if err != nil {
 					log.Fatal("call error : ", err)
+					return
 				}
 				c.events <- AliveCellsCount{totalCellResponse.TurnsComplete, totalCellResponse.TotalCells}
 			}
 		}
+		ticker.Stop()
 	}()
 	client.Call(stubs.UpdateStateHandler, updateRequest, updateResponse)
 	world = updateResponse.World
@@ -81,6 +82,18 @@ func distributor(p Params, c distributorChannels) {
 	//fmt.Printf("Alive Cell Count: %d\n", len(alive))
 
 	c.events <- FinalTurnComplete{p.Turns, alive}
+
+	c.ioCommand <- ioCheckIdle
+	isIdle := <-c.ioIdle
+	if isIdle {
+		c.ioCommand <- ioOutput
+		c.ioFilename <- fileName + "x" + strconv.Itoa(p.Turns)
+		for y := 0; y < p.ImageHeight; y++ {
+			for x := 0; x < p.ImageWidth; x++ {
+				c.ioOutput <- world[x][y]
+			}
+		}
+	}
 
 	// Make sure that the Io has finished any output before exiting.
 	c.ioCommand <- ioCheckIdle

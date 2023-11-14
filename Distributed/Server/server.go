@@ -25,7 +25,6 @@ func calculateNextState(world [][]byte, IMHT, IMWD int) [][]byte {
 
 	for y := 0; y < IMHT; y++ {
 		for x := 0; x < IMWD; x++ {
-
 			sum := (int(world[(y+IMHT-1)%IMHT][(x+IMWD-1)%IMWD]) +
 				int(world[(y+IMHT-1)%IMHT][(x+IMWD)%IMWD]) +
 				int(world[(y+IMHT-1)%IMHT][(x+IMWD+1)%IMWD]) +
@@ -88,7 +87,6 @@ func (u *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResp
 		//fmt.Print("State Locked\n")
 		u.World = calculateNextState(u.World, req.ImageHeight, req.ImageWidth)
 		u.Turns++
-		//fmt.Printf("State Unlocked : %d\n", u.Turns)
 		u.Mu.Unlock()
 	}
 	res.World = u.World
