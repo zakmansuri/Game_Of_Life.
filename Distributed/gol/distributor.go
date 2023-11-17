@@ -2,6 +2,7 @@ package gol
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/rpc"
 	"strconv"
@@ -19,6 +20,16 @@ type distributorChannels struct {
 	ioOutput   chan<- uint8
 	ioInput    <-chan uint8
 	keyPresses <-chan rune
+}
+
+func savePGMImage(c distributorChannels, w [][]byte, f string) {
+	c.ioCommand <- ioOutput
+	c.ioFilename <- f
+	for y := 0; y < len(w); y++ {
+		for x := 0; x < len(w[0]); x++ {
+			c.ioOutput <- w[x][y]
+		}
+	}
 }
 
 // distributor divides the work between workers and interacts with other goroutines.
@@ -50,21 +61,70 @@ func distributor(p Params, c distributorChannels) {
 		Turns:       p.Turns}
 
 	updateResponse := new(stubs.StateResponse)
+	ticker := time.NewTicker(2 * time.Second)
+	quitStatus := false
 
 	go func() {
-		ticker := time.NewTicker(2 * time.Second)
 		for {
 			select {
 			case <-ticker.C:
+				totalCellRequest := stubs.EmptyRequest{}
 				totalCellResponse := new(stubs.CellCountResponse)
-				err = client.Call(stubs.CalculateTotalAliveCellsHandler, stubs.EmptyRequest{}, totalCellResponse)
+				err = client.Call(stubs.CalculateTotalAliveCellsHandler, totalCellRequest, totalCellResponse)
 				if err != nil {
 					log.Fatal("call error : ", err)
 					return
 				}
 				c.events <- AliveCellsCount{totalCellResponse.TurnsComplete, totalCellResponse.TotalCells}
+			case command := <-c.keyPresses:
+				stateRequest := stubs.EmptyRequest{}
+				stateResponse := new(stubs.StateResponse)
+				client.Call(stubs.GetCurrentStateHandler, stateRequest, stateResponse)
+				switch command {
+				case 's':
+					outFileName := fileName + "x" + strconv.Itoa(stateResponse.Turns)
+					c.events <- StateChange{stateResponse.Turns, Executing}
+					savePGMImage(c, stateResponse.World, outFileName)
+					c.events <- ImageOutputComplete{stateResponse.Turns, outFileName}
+				case 'q':
+					client.Call(stubs.KillProcessesHandler, stubs.EmptyRequest{}, &stubs.EmptyResponse{})
+					c.events <- StateChange{stateResponse.Turns, Quitting}
+					quitStatus = true
+				case 'k':
+					outFileName := fileName + "x" + strconv.Itoa(stateResponse.Turns)
+					c.events <- StateChange{stateResponse.Turns, Quitting}
+					savePGMImage(c, stateResponse.World, outFileName)
+					client.Call(stubs.KillServerHandler, stubs.EmptyRequest{}, &stubs.StateResponse{})
+					quitStatus = true
+				case 'p':
+					pauseRequest := stubs.EmptyRequest{}
+					pauseResponse := new(stubs.StateResponse)
+					client.Call(stubs.PausedGameHandler, pauseRequest, pauseResponse)
+					c.events <- StateChange{pauseResponse.Turns, Paused}
+					pStatus := 0
+					for {
+						command := <-c.keyPresses
+						switch command {
+						case 'p':
+							pauseRequest := stubs.EmptyRequest{}
+							pauseResponse := new(stubs.StateResponse)
+							client.Call(stubs.PausedGameHandler, pauseRequest, pauseResponse)
+							c.events <- StateChange{pauseResponse.Turns, Executing}
+							fmt.Println("Continuing")
+							pStatus = 1
+							break
+						}
+						if pStatus == 1 {
+							break
+						}
+					}
+				}
+			}
+			if quitStatus {
+				break
 			}
 		}
+		client.Close()
 		ticker.Stop()
 	}()
 	client.Call(stubs.UpdateStateHandler, updateRequest, updateResponse)
@@ -81,18 +141,13 @@ func distributor(p Params, c distributorChannels) {
 
 	//fmt.Printf("Alive Cell Count: %d\n", len(alive))
 
-	c.events <- FinalTurnComplete{p.Turns, alive}
+	c.events <- FinalTurnComplete{cellCountResponse.Turns, alive}
 
 	c.ioCommand <- ioCheckIdle
 	isIdle := <-c.ioIdle
 	if isIdle {
-		c.ioCommand <- ioOutput
-		c.ioFilename <- fileName + "x" + strconv.Itoa(p.Turns)
-		for y := 0; y < p.ImageHeight; y++ {
-			for x := 0; x < p.ImageWidth; x++ {
-				c.ioOutput <- world[x][y]
-			}
-		}
+		outFileName := fileName + "x" + strconv.Itoa(p.Turns)
+		savePGMImage(c, world, outFileName)
 	}
 
 	// Make sure that the Io has finished any output before exiting.

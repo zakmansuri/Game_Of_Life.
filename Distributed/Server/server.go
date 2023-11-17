@@ -2,19 +2,25 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"math/rand"
 	"net"
 	"net/rpc"
+	"os"
 	"sync"
 	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
+var kChan = make(chan int)
+var qChan = make(chan int)
+
 type GOLOperations struct {
-	Mu    sync.Mutex
-	World [][]byte
-	Turns int
+	Mu     sync.Mutex
+	World  [][]byte
+	Turns  int
+	Paused bool
 }
 
 func calculateNextState(world [][]byte, IMHT, IMWD int) [][]byte {
@@ -22,7 +28,6 @@ func calculateNextState(world [][]byte, IMHT, IMWD int) [][]byte {
 	for i := range newWorld {
 		newWorld[i] = make([]byte, IMWD)
 	}
-
 	for y := 0; y < IMHT; y++ {
 		for x := 0; x < IMWD; x++ {
 			sum := (int(world[(y+IMHT-1)%IMHT][(x+IMWD-1)%IMWD]) +
@@ -80,16 +85,29 @@ func totalAliveCells(w [][]byte) int {
 }
 
 func (u *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResponse) (err error) {
+	u.Mu.Lock()
 	u.Turns = 0
-	u.World = req.World
+	u.World = make([][]byte, req.ImageHeight)
+	for y := 0; y < req.ImageHeight; y++ {
+		u.World[y] = make([]byte, req.ImageWidth)
+	}
+	for y := 0; y < req.ImageHeight; y++ {
+		for x := 0; x < req.ImageWidth; x++ {
+			u.World[y][x] = req.World[y][x]
+		}
+	}
+	u.Paused = false
+	u.Mu.Unlock()
 	for u.Turns < req.Turns {
 		u.Mu.Lock()
-		//fmt.Print("State Locked\n")
-		u.World = calculateNextState(u.World, req.ImageHeight, req.ImageWidth)
-		u.Turns++
+		if u.Paused == false {
+			u.World = calculateNextState(u.World, req.ImageHeight, req.ImageWidth)
+			u.Turns++
+		}
 		u.Mu.Unlock()
 	}
 	res.World = u.World
+	res.Turns = u.Turns
 	return
 }
 
@@ -97,6 +115,7 @@ func (u *GOLOperations) GetAliveCells(req stubs.AliveCellRequest, res *stubs.Ali
 	u.Mu.Lock()
 	defer u.Mu.Unlock()
 	res.Cells = calculateAliveCells(u.World, req.ImageHeight, req.ImageWidth)
+	res.Turns = u.Turns
 	return
 }
 
@@ -108,12 +127,51 @@ func (u *GOLOperations) AliveCellCount(req stubs.EmptyRequest, res *stubs.CellCo
 	return
 }
 
+func (u *GOLOperations) ReturnCurrentState(req stubs.EmptyRequest, res *stubs.StateResponse) (err error) {
+	u.Mu.Lock()
+	defer u.Mu.Unlock()
+	res.World = u.World
+	res.Turns = u.Turns
+	return
+}
+
+func (u *GOLOperations) PauseProcessing(req stubs.EmptyRequest, res *stubs.StateResponse) (err error) {
+	u.Mu.Lock()
+	defer u.Mu.Unlock()
+	if u.Paused == true {
+		u.Paused = false
+	} else {
+		u.Paused = true
+	}
+	res.World = u.World
+	res.Turns = u.Turns
+	return
+}
+
+func (u *GOLOperations) KillServer(req stubs.EmptyRequest, res *stubs.EmptyResponse) (err error) {
+	kChan <- 1
+	return
+}
+
+func (u *GOLOperations) KillProcesses(req stubs.EmptyRequest, res *stubs.EmptyResponse) (err error) {
+	fmt.Println("HERE")
+	qChan <- 1
+	fmt.Println("HERE")
+	return
+}
+
 func main() {
 	pAddr := flag.String("port", "8030", "Port to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
+	go func() {
+		<-kChan
+		os.Exit(1)
+	}()
 	rpc.Register(&GOLOperations{})
 	listener, _ := net.Listen("tcp", ":"+*pAddr)
-	defer listener.Close()
 	rpc.Accept(listener)
+	<-qChan
+	listener.Close()
+
 }
