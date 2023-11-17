@@ -77,6 +77,7 @@ func distributor(p Params, c distributorChannels) {
 				}
 				c.events <- AliveCellsCount{totalCellResponse.TurnsComplete, totalCellResponse.TotalCells}
 			case command := <-c.keyPresses:
+				fmt.Println(command)
 				stateRequest := stubs.EmptyRequest{}
 				stateResponse := new(stubs.StateResponse)
 				client.Call(stubs.GetCurrentStateHandler, stateRequest, stateResponse)

@@ -14,13 +14,13 @@ import (
 )
 
 var kChan = make(chan int)
-var qChan = make(chan int)
 
 type GOLOperations struct {
 	Mu     sync.Mutex
 	World  [][]byte
 	Turns  int
 	Paused bool
+	Quit   bool
 }
 
 func calculateNextState(world [][]byte, IMHT, IMWD int) [][]byte {
@@ -87,6 +87,7 @@ func totalAliveCells(w [][]byte) int {
 func (u *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResponse) (err error) {
 	u.Mu.Lock()
 	u.Turns = 0
+	u.Quit = false
 	u.World = make([][]byte, req.ImageHeight)
 	for y := 0; y < req.ImageHeight; y++ {
 		u.World[y] = make([]byte, req.ImageWidth)
@@ -96,10 +97,10 @@ func (u *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResp
 			u.World[y][x] = req.World[y][x]
 		}
 	}
-	u.Paused = false
 	u.Mu.Unlock()
-	for u.Turns < req.Turns {
+	for u.Turns < req.Turns && u.Quit != true {
 		u.Mu.Lock()
+		fmt.Println(u.Turns, req.ImageHeight)
 		if u.Paused == false {
 			u.World = calculateNextState(u.World, req.ImageHeight, req.ImageWidth)
 			u.Turns++
@@ -154,9 +155,9 @@ func (u *GOLOperations) KillServer(req stubs.EmptyRequest, res *stubs.EmptyRespo
 }
 
 func (u *GOLOperations) KillProcesses(req stubs.EmptyRequest, res *stubs.EmptyResponse) (err error) {
-	fmt.Println("HERE")
-	qChan <- 1
-	fmt.Println("HERE")
+	u.Mu.Lock()
+	defer u.Mu.Unlock()
+	u.Quit = true
 	return
 }
 
@@ -170,8 +171,6 @@ func main() {
 	}()
 	rpc.Register(&GOLOperations{})
 	listener, _ := net.Listen("tcp", ":"+*pAddr)
+	defer listener.Close()
 	rpc.Accept(listener)
-	<-qChan
-	listener.Close()
-
 }
