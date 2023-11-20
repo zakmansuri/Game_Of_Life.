@@ -11,4 +11,3 @@ func worker(p Params, bh int, h int, world [][]byte, out chan<- [][]byte, t int,
 	out <- updateNextState(p, world, temp, bh, h, t, c)
 
 }
-
