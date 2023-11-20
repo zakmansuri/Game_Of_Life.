@@ -42,7 +42,8 @@ func OutPutWorld(c distributorChannels, p Params, world [][]byte, turn int) {
 	}
 }
 
-// finds all alive cells and puts them in a slice
+// findAliveCells iterates through the game world and identifies all the alive cells.
+// It returns a slice of util.Cell, each representing the coordinates of an alive cell.
 func findAliveCells(IMWD, IMHT int, world [][]byte) []util.Cell {
 
 	var slice []util.Cell
@@ -57,11 +58,13 @@ func findAliveCells(IMWD, IMHT int, world [][]byte) []util.Cell {
 	return slice
 }
 
+// updateNextState updates the state of a portion of the game world for the next turn based on 
+// the Game of Life rules and sends events when cells change state.
 func updateNextState(p Params, world [][]byte, nextState [][]byte, bh int, h int, t int, c distributorChannels) [][]byte {
 
 	for y := bh; y <= h; y++ {
 		for x := 0; x < (p.ImageWidth); x++ {
-
+        		 // Calculate the sum of the states of the 8 neighboring cells, normalized to 0 or 1.
 			sum := (int(world[(y+p.ImageHeight-1)%p.ImageHeight][(x+p.ImageWidth-1)%p.ImageWidth]) +
 				int(world[(y+p.ImageHeight-1)%p.ImageHeight][(x+p.ImageWidth)%p.ImageWidth]) +
 				int(world[(y+p.ImageHeight-1)%p.ImageHeight][(x+p.ImageWidth+1)%p.ImageWidth]) +
@@ -71,6 +74,7 @@ func updateNextState(p Params, world [][]byte, nextState [][]byte, bh int, h int
 				int(world[(y+p.ImageHeight+1)%p.ImageHeight][(x+p.ImageWidth)%p.ImageWidth]) +
 				int(world[(y+p.ImageHeight+1)%p.ImageHeight][(x+p.ImageWidth+1)%p.ImageWidth])) / 255
 
+			 // Apply Game of Life rules based on the sum calculated.
 			if world[y][x] == 0xFF {
 				if sum < 2 {
 					nextState[y][x] = 0x00
@@ -92,6 +96,7 @@ func updateNextState(p Params, world [][]byte, nextState [][]byte, bh int, h int
 		}
 	}
 
+	// Extract and return the slice of the updated state for this worker's portion.
 	workerSlice := nextState[bh : h+1]
 
 	return workerSlice
