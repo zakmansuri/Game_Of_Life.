@@ -218,15 +218,15 @@ func distributor(p Params, c distributorChannels) {
 			case 's':
 				c.events <- StateChange{turn + 1, Executing}
 				OutPutWorld(c, p, world, turn+1)
-				//saves the game into file
+				// Saves the game
 			case 'q':
 				c.events <- StateChange{turn + 1, Quitting}
 				quit = true
-				//quits the game and stops processing
+				// Quits the game
 			case 'p':
 				c.events <- StateChange{turn + 1, Paused}
 				OutPutWorld(c, p, world, turn+1)
-				//pauses and outputs the game
+				// Pauses the game
 				pause := false
 
 				for {
@@ -256,12 +256,13 @@ func distributor(p Params, c distributorChannels) {
 	done <- false
 
 	var alive []util.Cell
+	// Calculates the alive cells using findAliveCells
 	alive = findAliveCells(p.ImageWidth, p.ImageHeight, world)
 
 	// Report the final state using FinalTurnCompleteEvent.
 	c.events <- FinalTurnComplete{turn, alive}
 
-	// Makes sure that the Io has finished any output before exiting.
+	// Makes sure that the Io has completed any output before exiting.
 	c.ioCommand <- ioCheckIdle
 	if <-c.ioIdle {
 		n := strconv.Itoa(p.Turns)
@@ -282,7 +283,7 @@ func distributor(p Params, c distributorChannels) {
 		c.events <- StateChange{turn, Quitting}
 	}
 
-	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
+	// Close channel to stop SDL goroutine
 	close(c.events)
 }
 
