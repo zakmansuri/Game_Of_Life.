@@ -101,16 +101,21 @@ func updateNextState(p Params, world [][]byte, nextState [][]byte, bh int, h int
 	return workerSlice
 }
 
-// goes through 2D array to get number of alive cells
+// getAliveCells counts the number of alive cells in a 2D array representing the Game of Life world.
 func getAliveCells(w [][]byte) int {
 	count := 0
+
+	// Iterate over each row of the world.
 	for i := 0; i < len(w); i++ {
+		// Iterate over each column in the current row.
 		for j := 0; j < len(w[0]); j++ {
 			if w[i][j] == 255 {
+				 // Increment the count for each alive cell found.
 				count++
 			}
 		}
 	}
+	 // Return the total count of alive cells.
 	return count
 }
 
