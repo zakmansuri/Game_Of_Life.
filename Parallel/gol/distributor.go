@@ -119,22 +119,29 @@ func getAliveCells(w [][]byte) int {
 	return count
 }
 
-// distributor divides the work between workers and interacts with other goroutines.
+// distributor is responsible for dividing the work among worker goroutines and handling interactions
+// with other parts of the system in a Game of Life simulation.
 func distributor(p Params, c distributorChannels) {
 
-	// loads in the world into a 2D slice from a PGM image
+  	// Prepare the filename for loading the initial world state from a PGM image.
+   	// The filename is constructed based on the image width and height.
 	t := strconv.Itoa(p.ImageWidth) + "x" + strconv.Itoa(p.ImageWidth)
+	// Send commands to the IO system to load the initial state.
 	c.ioCommand <- ioInput
 	c.ioFilename <- t
 
+	// Initialize the world as a 2D slice of uint8 values, representing the game grid.
 	world := make([][]uint8, p.ImageHeight)
 	for i := 0; i < p.ImageHeight; i++ {
 		world[i] = make([]uint8, p.ImageWidth)
 	}
 
+	// Fill the world slice with data received from the IO system.
+    	// This loop reads the state of each cell in the PGM image.
 	for i := 0; i < p.ImageHeight; i++ {
 		for j := 0; j < p.ImageWidth; j++ {
 			world[j][i] = <-c.ioInput
+			// If a cell is alive (denoted by 0xFF), send a CellFlipped event.
 			if world[j][i] == 0xFF {
 				c.events <- CellFlipped{0, util.Cell{i, j}}
 			}
