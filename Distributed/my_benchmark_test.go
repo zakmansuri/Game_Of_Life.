@@ -36,7 +36,7 @@ func BenchmarkGol(b *testing.B) {
         // Start the Game of Life simulation in a separate goroutine.
 				go gol.Run(p, events, nil)
 				// Consume and discard events from the simulation until it ends.
-				for event := range events {
+				for range events {
 
 				}
 			}
