@@ -147,14 +147,19 @@ func distributor(p Params, c distributorChannels) {
 			}
 		}
 	}
+
+	// Initialize the turn counter and a flag to indicate when to quit the simulation.
 	turn := 0
 	quit := false
 
+	// Create a ticker that will send a signal every 2 seconds.
 	ticker := time.NewTicker(2 * time.Second)
+	// Create a channel to signal when the simulation is done.
 	done := make(chan bool, 1)
 
+	// Initialize a slice to store the number of rows each worker goroutine will process.
 	heights := make([]int, p.Threads)
-	// splits heights per thread fairly
+	// Distribute the rows of the game world among the worker goroutines evenly.
 	for i := 0; i < p.ImageHeight; i++ {
 		heights[i%p.Threads]++
 	}
