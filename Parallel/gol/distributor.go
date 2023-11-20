@@ -7,8 +7,9 @@ import (
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
+//  distributorChannels defines the channels used for communication with the SDL context.
+//  It includes channels for handling events enabling efficient data flow
 type distributorChannels struct {
-	// Event is what is used to communicate with SDL
 	events     chan<- Event
 	ioCommand  chan<- ioCommand
 	ioIdle     <-chan bool
@@ -18,18 +19,22 @@ type distributorChannels struct {
 	keyPresses <-chan rune
 }
 
-// OutPutWorldImage : used to send the world to convert it to a PGM image via ioOutput
-func OutPutWorldImage(c distributorChannels, p Params, world [][]byte, turn int) {
+//  OutPutWorld generates and sends an image of the current state of the world to the IO system.
+func OutPutWorld(c distributorChannels, p Params, world [][]byte, turn int) {
+	// Checks the IO system is idle by sending ioCheckIdle command and reciving idle status
 	c.ioCommand <- ioCheckIdle
 	Idle := <-c.ioIdle
 	if Idle == true {
+		// strconv to convert into string
 		n := strconv.Itoa(turn)
 		t := strconv.Itoa(p.ImageWidth)
 		t = t + "x" + t
 		c.ioCommand <- ioOutput
+		// Send filename to IO system
 		c.ioFilename <- t + "x" + n
 		for i := 0; i < p.ImageHeight; i++ {
 			for j := 0; j < p.ImageWidth; j++ {
+				// Send the byte value of each cell to the IO system for image construction
 				c.ioOutput <- world[j][i]
 			}
 
@@ -93,7 +98,7 @@ func updateNextState(p Params, world [][]byte, nextState [][]byte, bh int, h int
 }
 
 // goes through 2D array to get number of alive cells
-func totalAliveCells(w [][]byte) int {
+func getAliveCells(w [][]byte) int {
 	count := 0
 	for i := 0; i < len(w); i++ {
 		for j := 0; j < len(w[0]); j++ {
@@ -109,14 +114,15 @@ func totalAliveCells(w [][]byte) int {
 func distributor(p Params, c distributorChannels) {
 
 	// loads in the world into a 2D slice from a PGM image
-	t := strconv.Itoa(p.ImageWidth)
-	t = t + "x" + t
+	t := strconv.Itoa(p.ImageWidth) + "x" + strconv.Itoa(p.ImageWidth)
 	c.ioCommand <- ioInput
 	c.ioFilename <- t
+
 	world := make([][]uint8, p.ImageHeight)
-	for i := range world {
+	for i := 0; i < p.ImageHeight; i++ {
 		world[i] = make([]uint8, p.ImageWidth)
 	}
+
 	for i := 0; i < p.ImageHeight; i++ {
 		for j := 0; j < p.ImageWidth; j++ {
 			world[j][i] = <-c.ioInput
@@ -126,7 +132,10 @@ func distributor(p Params, c distributorChannels) {
 		}
 	}
 	turn := 0
-	qStatus := false
+	quit := false
+
+	ticker := time.NewTicker(2 * time.Second)
+	done := make(chan bool, 1)
 
 	heights := make([]int, p.Threads)
 	// splits heights per thread fairly
@@ -134,65 +143,62 @@ func distributor(p Params, c distributorChannels) {
 		heights[i%p.Threads]++
 	}
 
-	ticker := time.NewTicker(2 * time.Second)
-	done := make(chan bool, 1)
-
 	// Executes all turns of the Game of Life.
 	for turn < p.Turns {
 
 		bh := 0 // base height for the index of the world for worker
 		h := -1 // end index of the world for worker
-		var sChanW []chan [][]byte
+		var sliceChanW []chan [][]byte
 
 		for i := 0; i < p.Threads; i++ {
 
-			chanW := make(chan [][]byte)
-			sChanW = append(sChanW, chanW)
+			channelW := make(chan [][]byte)
+			sliceChanW = append(sliceChanW, channelW)
 
 			h += heights[i]
 
-			go worker(p, bh, h, world, sChanW[i], turn+1, c)
+			go worker(p, bh, h, world, sliceChanW[i], turn+1, c)
 
 			bh += heights[i]
 		}
 
-		NewWorld := make([][]byte, p.ImageHeight)
-		for i := range NewWorld {
-			NewWorld[i] = make([]uint8, p.ImageWidth)
+		NewState := make([][]byte, p.ImageHeight)
+		for i := 0; i < p.ImageHeight; i++ {
+			NewState[i] = make([]byte, p.ImageWidth)
 		}
 
-		index := 0
+		rowIndex := 0
 		// receives and assembles the resulting world
 		for i := 0; i < p.Threads; i++ {
-			v := <-sChanW[i]
-			for _, row := range v {
-				NewWorld[index] = row
-				index++
+			workerSlice := <-sliceChanW[i]
+			for _, row := range workerSlice {
+				NewState[rowIndex] = row
+				rowIndex++
 			}
 		}
 
-		world = NewWorld
+		world = NewState
 		c.events <- TurnComplete{turn + 1}
 
 		// different conditions
 		select {
 		case <-ticker.C:
-			c.events <- AliveCellsCount{turn + 1, totalAliveCells(world)}
+			c.events <- AliveCellsCount{turn + 1, getAliveCells(world)}
 		case command := <-c.keyPresses:
 			switch command {
 			case 's':
 				c.events <- StateChange{turn + 1, Executing}
-				OutPutWorldImage(c, p, world, turn+1)
+				OutPutWorld(c, p, world, turn+1)
 				//saves the game into file
 			case 'q':
 				c.events <- StateChange{turn + 1, Quitting}
-				qStatus = true
+				quit = true
 				//quits the game and stops processing
 			case 'p':
 				c.events <- StateChange{turn + 1, Paused}
-				OutPutWorldImage(c, p, world, turn+1)
+				OutPutWorld(c, p, world, turn+1)
 				//pauses and outputs the game
-				pStatus := 0
+				pause := false
 
 				for {
 					command := <-c.keyPresses
@@ -201,10 +207,10 @@ func distributor(p Params, c distributorChannels) {
 						fmt.Println("continuing")
 						c.events <- StateChange{turn + 1, Executing}
 						c.events <- TurnComplete{turn + 1}
-						pStatus = 1
+						pause = true
 						break
 					}
-					if pStatus == 1 {
+					if pause {
 						break
 					}
 				}
@@ -212,7 +218,7 @@ func distributor(p Params, c distributorChannels) {
 		default:
 		}
 		// for quiting the programme: q
-		if qStatus == true {
+		if quit {
 			break
 		}
 		turn++
@@ -228,8 +234,7 @@ func distributor(p Params, c distributorChannels) {
 
 	// Makes sure that the Io has finished any output before exiting.
 	c.ioCommand <- ioCheckIdle
-	Idle := <-c.ioIdle
-	if Idle == true {
+	if <-c.ioIdle {
 		n := strconv.Itoa(p.Turns)
 
 		c.ioCommand <- ioOutput
@@ -244,9 +249,7 @@ func distributor(p Params, c distributorChannels) {
 	}
 
 	c.ioCommand <- ioCheckIdle
-	Idle = <-c.ioIdle
-
-	if Idle == true {
+	if <-c.ioIdle {
 		c.events <- StateChange{turn, Quitting}
 	}
 
