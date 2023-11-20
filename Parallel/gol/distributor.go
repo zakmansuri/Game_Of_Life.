@@ -164,15 +164,18 @@ func distributor(p Params, c distributorChannels) {
 		heights[i%p.Threads]++
 	}
 
-	// Executes all turns of the Game of Life.
+	// Main loop for executing all turns of the Game of Life simulation.
 	for turn < p.Turns {
 
+		// Initialize variables for dividing the work among worker goroutines.
 		bh := 0 // base height for the index of the world for worker
 		h := -1 // end index of the world for worker
 		var sliceChanW []chan [][]byte
 
+		// Divide work among worker goroutines and start them.
 		for i := 0; i < p.Threads; i++ {
-
+			
+     			// Create a channel for communication with each worker.
 			channelW := make(chan [][]byte)
 			sliceChanW = append(sliceChanW, channelW)
 
@@ -180,14 +183,17 @@ func distributor(p Params, c distributorChannels) {
 
 			go worker(p, bh, h, world, sliceChanW[i], turn+1, c)
 
+			// Update the base height for the next worker's segment.
 			bh += heights[i]
 		}
 
+		// Initialize a 2D slice to store the new state of the world.
 		NewState := make([][]byte, p.ImageHeight)
 		for i := 0; i < p.ImageHeight; i++ {
 			NewState[i] = make([]byte, p.ImageWidth)
 		}
 
+		// Assemble the new state of the world from slices returned by the workers.
 		rowIndex := 0
 		// receives and assembles the resulting world
 		for i := 0; i < p.Threads; i++ {
@@ -199,11 +205,13 @@ func distributor(p Params, c distributorChannels) {
 		}
 
 		world = NewState
+		// Send an event indicating the completion of the current turn.
 		c.events <- TurnComplete{turn + 1}
 
-		// different conditions
+    		// Handle different conditions based on input or time triggers.
 		select {
 		case <-ticker.C:
+			// Send an event with the count of alive cells.
 			c.events <- AliveCellsCount{turn + 1, getAliveCells(world)}
 		case command := <-c.keyPresses:
 			switch command {
@@ -236,9 +244,9 @@ func distributor(p Params, c distributorChannels) {
 					}
 				}
 			}
-		default:
+		default: // No input received.
 		}
-		// for quiting the programme: q
+   		// Check if the quit flag is set and break the loop if so.
 		if quit {
 			break
 		}
