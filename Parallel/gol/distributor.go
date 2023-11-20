@@ -98,7 +98,6 @@ func updateNextState(p Params, world [][]byte, nextState [][]byte, bh int, h int
 
 	// Extract and return the slice of the updated state for this worker's portion.
 	workerSlice := nextState[bh : h+1]
-
 	return workerSlice
 }
 
