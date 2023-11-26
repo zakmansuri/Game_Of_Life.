@@ -11,8 +11,6 @@ import (
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
-var broker = flag.String("broker", "127.0.0.1:8038", "IP:port string to connect to as broker")
-
 type distributorChannels struct {
 	events     chan<- Event
 	ioCommand  chan<- ioCommand
@@ -23,15 +21,7 @@ type distributorChannels struct {
 	keyPresses <-chan rune
 }
 
-func savePGMImage(c distributorChannels, w [][]byte, f string) {
-	c.ioCommand <- ioOutput
-	c.ioFilename <- f
-	for y := 0; y < len(w); y++ {
-		for x := 0; x < len(w[0]); x++ {
-			c.ioOutput <- w[x][y]
-		}
-	}
-}
+var brokerAddr = flag.String("broker", "127.0.0.1:8030", "IP:port string to connect to as broker")
 
 func calculateAliveCells(world [][]byte, IMHT, IMWD int) []util.Cell {
 	var slice []util.Cell
@@ -45,13 +35,23 @@ func calculateAliveCells(world [][]byte, IMHT, IMWD int) []util.Cell {
 	return slice
 }
 
+func savePGMImage(c distributorChannels, w [][]byte, f string, IMHT, IMWD int) {
+	c.ioCommand <- ioOutput
+	c.ioFilename <- f
+	for y := 0; y < IMHT; y++ {
+		for x := 0; x < IMWD; x++ {
+			c.ioOutput <- w[x][y]
+		}
+	}
+}
+
 // distributor divides the work between workers and interacts with other goroutines.
 func distributor(p Params, c distributorChannels) {
 
 	t := strconv.Itoa(p.ImageWidth)
-	fileName := t + "x" + t
+	t = t + "x" + t
 	c.ioCommand <- ioInput
-	c.ioFilename <- fileName
+	c.ioFilename <- t
 	world := make([][]byte, p.ImageHeight)
 	for i := range world {
 		world[i] = make([]byte, p.ImageWidth)
@@ -61,125 +61,104 @@ func distributor(p Params, c distributorChannels) {
 			world[j][i] = <-c.ioInput
 		}
 	}
+	stateRequest := stubs.StateRequest{
+		World: world,
+		Turns: p.Turns,
+		IMHT:  p.ImageHeight,
+		IMWD:  p.ImageWidth,
+	}
+	stateResponse := new(stubs.StateResponse)
 
 	flag.Parse()
-	client, err := rpc.Dial("tcp", *broker)
-	if err != nil {
-		log.Fatal("Call error: ", err)
-	}
+	client, _ := rpc.Dial("tcp", *brokerAddr)
 	defer client.Close()
 
-	updateRequest := stubs.StateRequest{
-		World:       world,
-		ImageHeight: p.ImageHeight,
-		ImageWidth:  p.ImageWidth,
-		Threads:     p.Threads,
-		Turns:       p.Turns}
-
-	updateResponse := new(stubs.StateResponse)
 	ticker := time.NewTicker(2 * time.Second)
-	finished := false
-	quit := false
+	finished := make(chan bool)
 
 	go func() {
-		for !finished {
+		defer ticker.Stop()
+		for {
 			select {
 			case <-ticker.C:
-				totalCellRequest := stubs.EmptyRequest{}
-				totalCellResponse := new(stubs.CellCountResponse)
-				client.Call(stubs.CalculateTotalAliveCellsHandler, totalCellRequest, totalCellResponse)
-				c.events <- AliveCellsCount{totalCellResponse.TurnsComplete, totalCellResponse.TotalCells}
+				cellRequest := stubs.TotalCellRequest{}
+				cellResponse := new(stubs.TotalCellResponse)
+				err := client.Call(stubs.CalcualteTotalAliveCells, cellRequest, cellResponse)
+				if err != nil {
+					log.Fatal("Cell Request Call Error:", err)
+				}
+				c.events <- AliveCellsCount{cellResponse.Turns, cellResponse.AliveCells}
+			case <-finished:
+				return
 			case command := <-c.keyPresses:
-				stateRequest := stubs.EmptyRequest{}
-				stateResponse := new(stubs.StateResponse)
-				client.Call(stubs.GetCurrentStateHandler, stateRequest, stateResponse)
-				//if err != nil {
-				//	log.Fatal("call error : ", err)
-				//	return
-				//}
+				keyRequest := stubs.KeyRequest{command}
+				keyResponse := new(stubs.KeyResponse)
+				err := client.Call(stubs.KeyPresshandler, keyRequest, keyResponse)
+				if err != nil {
+					log.Fatal("Key Press Call Error:", err)
+				}
+				outFileName := t + "x" + strconv.Itoa(keyResponse.Turns)
 				switch command {
 				case 's':
-					outFileName := fileName + "x" + strconv.Itoa(stateResponse.Turns)
-					c.events <- StateChange{stateResponse.Turns, Executing}
-					savePGMImage(c, stateResponse.World, outFileName)
-					c.events <- ImageOutputComplete{stateResponse.Turns, outFileName}
-				case 'q':
-					req := stubs.EmptyRequest{}
-					res := new(stubs.QuitResponse)
-					client.Call(stubs.KillProcessesHandler, req, res)
-					c.events <- StateChange{stateResponse.Turns, Quitting}
-					quit = true
+					c.events <- StateChange{keyResponse.Turns, Executing}
+					savePGMImage(c, keyResponse.World, outFileName, p.ImageHeight, p.ImageWidth)
 				case 'k':
-					outFileName := fileName + "x" + strconv.Itoa(stateResponse.Turns)
-					c.events <- StateChange{stateResponse.Turns, Quitting}
-					savePGMImage(c, stateResponse.World, outFileName)
-					client.Call(stubs.KillServerHandler, stubs.EmptyRequest{}, &stubs.StateResponse{})
-					//if err != nil {
-					//	log.Fatal("call error : ", err)
-					//	return
-					//}
+					err := client.Call(stubs.KillServerHandler, stubs.KillRequest{}, new(stubs.KillResponse))
+					savePGMImage(c, keyResponse.World, outFileName, p.ImageHeight, p.ImageWidth)
+					c.events <- StateChange{keyResponse.Turns, Quitting}
+					if err != nil {
+						log.Fatal("Kill Request Call Error:", err)
+					}
+					finished <- true
+				case 'q':
+					c.events <- StateChange{keyResponse.Turns, Quitting}
+					finished <- true
 				case 'p':
-					pauseRequest := stubs.EmptyRequest{}
-					pauseResponse := new(stubs.StateResponse)
-					client.Call(stubs.PausedGameHandler, pauseRequest, pauseResponse)
-					//if err != nil {
-					//	log.Fatal("call error : ", err)
-					//	return
-					//}
-					c.events <- StateChange{pauseResponse.Turns, Paused}
-					pStatus := true
-					for pStatus {
+					paused := true
+					fmt.Println(keyResponse.Turns)
+					c.events <- StateChange{keyResponse.Turns, Paused}
+					for paused == true {
 						command := <-c.keyPresses
 						switch command {
 						case 'p':
-							pauseRequest := stubs.EmptyRequest{}
-							pauseResponse := new(stubs.StateResponse)
-							client.Call(stubs.PausedGameHandler, pauseRequest, pauseResponse)
-
-							c.events <- StateChange{pauseResponse.Turns, Executing}
+							keyRequest := stubs.KeyRequest{command}
+							keyResponse := new(stubs.KeyResponse)
+							client.Call(stubs.KeyPresshandler, keyRequest, keyResponse)
+							c.events <- StateChange{keyResponse.Turns, Executing}
 							fmt.Println("Continuing")
-							pStatus = false
-							break
+							paused = false
 						}
 					}
 				}
+
 			}
 		}
 		ticker.Stop()
 	}()
 
-	client.Call(stubs.UpdateStateHandler, updateRequest, updateResponse)
-	//if err != nil {
-	//	log.Fatal("call error : ", err)
-	//	return
-	//}
-	finished = true
-	world = updateResponse.World
-	turns := updateResponse.Turns
-
-	//cellCountRequest := stubs.AliveCellRequest{
-	//	ImageHeight: p.ImageHeight,
-	//	ImageWidth:  p.ImageWidth}
-	//
-	//cellCountResponse := new(stubs.AliveCellResponse)
-	//
-	//client.Call(stubs.GetAliveCellsHandler, cellCountRequest, cellCountResponse)
-	//
-	//var alive = cellCountResponse.Cells
+	err := client.Call(stubs.UpdateStateHandler, stateRequest, stateResponse)
+	if err != nil {
+		log.Fatal("Update State Call Error:", err)
+	}
+	if stateResponse.Turns == p.Turns {
+		finished <- true
+	}
+	world = stateResponse.World
+	turns := stateResponse.Turns
+	// Make sure that the Io has finished any output before exiting.
+	c.events <- FinalTurnComplete{turns, calculateAliveCells(world, p.ImageHeight, p.ImageWidth)}
 
 	c.ioCommand <- ioCheckIdle
-	<-c.ioIdle
-	c.events <- FinalTurnComplete{turns, calculateAliveCells(world, p.ImageHeight, p.ImageWidth)}
-	if !quit {
-		outFileName := fileName + "x" + strconv.Itoa(p.Turns)
-		savePGMImage(c, world, outFileName)
+	Idle := <-c.ioIdle
+	if Idle == true {
+		outFileName := t + "x" + strconv.Itoa(p.Turns)
+		savePGMImage(c, world, outFileName, p.ImageHeight, p.ImageWidth)
 	}
 
-	// Make sure that the Io has finished any output before exiting.
-	//c.ioCommand <- ioCheckIdle
-	//<-c.ioIdle
+	c.ioCommand <- ioCheckIdle
+	Idle = <-c.ioIdle
 
-	c.events <- StateChange{p.Turns, Quitting}
+	c.events <- StateChange{turns, Quitting}
 
 	// Close the channel to stop the SDL goroutine gracefully. Removing may cause deadlock.
 	close(c.events)

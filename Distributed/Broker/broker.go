@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"log"
 	"math/rand"
 	"net"
 	"net/rpc"
@@ -9,35 +10,22 @@ import (
 	"sync"
 	"time"
 	"uk.ac.bris.cs/gameoflife/stubs"
-	"uk.ac.bris.cs/gameoflife/util"
 )
 
-var kChan = make(chan int)
+var worker1 = flag.String("worker1", "127.0.0.1:8050", "ip:port to connect to first worker")
+var worker2 = flag.String("worker2", "127.0.0.1:8051", "ip:port to connect to second worker")
+var worker3 = flag.String("worker3", "127.0.0.1:8052", "ip:port to connect to third worker")
+var worker4 = flag.String("worker4", "127.0.0.1:8053", "ip:port to connect to fourth worker")
 
-var worker1 = flag.String("worker1", "127.0.0.1:8040", "ip:port to connect to first worker")
-var worker2 = flag.String("worker2", "127.0.0.1:8041", "ip:port to connect to second worker")
-var worker3 = flag.String("worker3", "127.0.0.1:8042", "ip:port to connect to third worker")
-var worker4 = flag.String("worker4", "127.0.0.1:8043", "ip:port to connect to fourth worker")
+var Kchan = make(chan bool)
 
 type GOLOperations struct {
 	Mu      sync.Mutex
 	World   [][]byte
 	Turns   int
-	Paused  bool
 	Quit    bool
+	Paused  bool
 	Workers []*rpc.Client
-}
-
-func calculateAliveCells(world [][]byte, IMHT, IMWD int) []util.Cell {
-	var slice []util.Cell
-	for y := 0; y < IMHT; y++ {
-		for x := 0; x < IMWD; x++ {
-			if world[y][x] == 0xFF {
-				slice = append(slice, util.Cell{y, x})
-			}
-		}
-	}
-	return slice
 }
 
 func totalAliveCells(w [][]byte) int {
@@ -52,145 +40,160 @@ func totalAliveCells(w [][]byte) int {
 	return count
 }
 
-func worker(req stubs.TurnRequest, res *stubs.TurnResponse, client *rpc.Client, responseChannel chan [][]byte) {
-	client.Call(stubs.TurnHandler, req, res)
-	newSlice := res.Slice
-	responseChannel <- newSlice
-}
-
 func calculateSlice(IMWD, start, end int, world [][]byte) [][]byte {
 	var newSlice [][]byte
 	dy := end - start
 	for i := 0; i < dy; i++ {
 		newSlice = append(newSlice, []byte{})
 		for j := 0; j < IMWD; j++ {
+
 			newSlice[i] = append(newSlice[i], world[start+i][j])
 		}
 	}
 	return newSlice
 }
 
-func executeTurn(world [][]byte, workers []*rpc.Client, IMWD, IMHT int) [][]byte {
+func calculateSlice2(IMWD, start, end int, world [][]byte) [][]byte {
+	var newSlice [][]byte
+	dy := end - start
+	newSlice = append(newSlice, []byte{})
+	if start == 0 {
+		for x := 0; x < IMWD; x++ {
+			newSlice[0] = append(newSlice[0], world[len(world)-1][x])
+		}
+	} else {
+		for x := 0; x < IMWD; x++ {
+			newSlice[0] = append(newSlice[0], world[start-1][x])
+		}
+	}
+	for i := 0; i < dy; i++ {
+		newSlice = append(newSlice, []byte{})
+		for x := 0; x < IMWD; x++ {
+			newSlice[i+1] = append(newSlice[i+1], world[start+i][x])
+		}
+	}
+	newSlice = append(newSlice, []byte{})
+	if end == len(world) {
+		for x := 0; x < IMWD; x++ {
+			newSlice[dy+1] = append(newSlice[dy+1], world[0][x])
+		}
+	} else {
+		for x := 0; x < IMWD; x++ {
+			newSlice[dy+1] = append(newSlice[dy+1], world[end][x])
+		}
+	}
+	return newSlice
+}
+
+func worker(req stubs.WorkerRequest, res *stubs.WorkerResponse, client *rpc.Client, channel chan [][]byte) {
+	client.Call(stubs.CalculateNextStateHandler, req, res)
+	channel <- res.Slice
+}
+
+func execute(world [][]byte, IMHT, IMWD int, workers []*rpc.Client) [][]byte {
 	dy := IMHT / len(workers)
-	responseChannels := make([]chan [][]byte, len(workers))
+	var responseChannels = make([]chan [][]byte, len(workers))
 	var newWorld [][]byte
 	for i := 0; i < len(workers); i++ {
-		request := stubs.TurnRequest{World: world, Slice: calculateSlice(IMWD, i*dy, (i+1)*dy, world), Start: i * dy, End: (i + 1) * dy}
-		response := new(stubs.TurnResponse)
+		//Slice := calculateSlice(IMWD, i*dy, (i+1)*dy, world)
+		//Slice2 := calculateSlice2(IMWD, i*dy, (i+1)*dy, world)
+		//fmt.Println(Slice)
+		//fmt.Println(Slice2)
+		//fmt.Println(len(Slice2))
+		//fmt.Println("---------------------------")
+		request := stubs.WorkerRequest{
+			Slice: calculateSlice2(IMWD, i*dy, (i+1)*dy, world),
+			Start: i * dy,
+			End:   (i + 1) * dy,
+		}
+		response := new(stubs.WorkerResponse)
 		responseChannel := make(chan [][]byte)
 		responseChannels[i] = responseChannel
-		go worker(request, response, workers[i], responseChannels[i])
+		go worker(request, response, workers[i], responseChannel)
 	}
-	for i := 0; i < len(responseChannels); i++ {
-		newSlice := <-responseChannels[i]
-		newWorld = append(newWorld, newSlice...)
+	for i := 0; i < len(workers); i++ {
+		slice := <-responseChannels[i]
+		newWorld = append(newWorld, slice...)
 	}
 	return newWorld
 }
 
-func (u *GOLOperations) GetAliveCells(req stubs.AliveCellRequest, res *stubs.AliveCellResponse) (err error) {
-	u.Mu.Lock()
-	defer u.Mu.Unlock()
-	res.Cells = calculateAliveCells(u.World, req.ImageHeight, req.ImageWidth)
-	res.Turns = u.Turns
+func (g *GOLOperations) KillServer(req stubs.KillRequest, res *stubs.KillResponse) (err error) {
+	Kchan <- true
 	return
 }
 
-func (u *GOLOperations) AliveCellCount(req stubs.EmptyRequest, res *stubs.CellCountResponse) (err error) {
-	u.Mu.Lock()
-	defer u.Mu.Unlock()
-	res.TotalCells = totalAliveCells(u.World)
-	res.TurnsComplete = u.Turns
-	return
-}
-
-func (u *GOLOperations) ReturnCurrentState(req stubs.EmptyRequest, res *stubs.StateResponse) (err error) {
-	u.Mu.Lock()
-	defer u.Mu.Unlock()
-	res.World = u.World
-	res.Turns = u.Turns
-	return
-}
-
-func (u *GOLOperations) PauseProcessing(req stubs.EmptyRequest, res *stubs.StateResponse) (err error) {
-	u.Mu.Lock()
-	defer u.Mu.Unlock()
-	if u.Paused == true {
-		u.Paused = false
-	} else {
-		u.Paused = true
-	}
-	res.World = u.World
-	res.Turns = u.Turns
-	return
-}
-
-func (u *GOLOperations) KillProcesses(req stubs.EmptyRequest, res *stubs.QuitResponse) (err error) {
-	u.Mu.Lock()
-	defer u.Mu.Lock()
-	u.Quit = true
-	res.MSG = "HELLO"
-	return
-}
-
-func (u *GOLOperations) KillServer(req stubs.EmptyRequest, res *stubs.EmptyResponse) (err error) {
-	u.Mu.Lock()
-	defer u.Mu.Unlock()
-	u.Quit = true
-	kChan <- 1
-	return
-}
-
-func (u *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResponse) (err error) {
-	u.Mu.Lock()
-	u.Turns = 0
-	u.Quit = false
-	u.Paused = false
-	u.World = req.World
-	u.Mu.Unlock()
-	for u.Turns < req.Turns && u.Quit != true {
-		u.Mu.Lock()
-		if u.Paused == false {
-			u.World = executeTurn(u.World, u.Workers, req.ImageWidth, req.ImageHeight)
-			u.Turns++
+func (g *GOLOperations) PressedKey(req stubs.KeyRequest, res *stubs.KeyResponse) (err error) {
+	g.Mu.Lock()
+	defer g.Mu.Unlock()
+	res.Turns = g.Turns
+	res.World = g.World
+	switch req.Key {
+	case 'p':
+		if g.Paused == false {
+			g.Paused = true
+		} else {
+			g.Paused = false
 		}
-		u.Mu.Unlock()
+	case 'q':
+		g.Quit = true
+	case 'k':
+		g.Quit = true
 	}
-	res.World = u.World
-	res.Turns = u.Turns
+	return
+}
+
+func (g *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResponse) (err error) {
+	g.Mu.Lock()
+	g.World = req.World
+	g.Turns = 0
+	g.Quit = false
+	g.Paused = false
+	g.Mu.Unlock()
+	for !g.Quit && g.Turns < req.Turns {
+		g.Mu.Lock()
+		if !g.Paused {
+			g.World = execute(g.World, len(g.World), len(g.World[0]), g.Workers)
+			g.Turns++
+		}
+		g.Mu.Unlock()
+	}
+	res.World = g.World
+	res.Turns = g.Turns
+	return
+}
+
+func (g *GOLOperations) CalculateTotalCells(req stubs.TotalCellRequest, res *stubs.TotalCellResponse) (err error) {
+	g.Mu.Lock()
+	defer g.Mu.Unlock()
+	res.AliveCells = totalAliveCells(g.World)
+	res.Turns = g.Turns
 	return
 }
 
 func main() {
-	pAddr := flag.String("port", "8038", "Port to listen on")
+	brokerAddr := flag.String("port", "8030", "Port to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
-	client1, _ := rpc.Dial("tcp", *worker1)
-	defer client1.Close()
-	client2, _ := rpc.Dial("tcp", *worker2)
-	defer client2.Close()
-	client3, _ := rpc.Dial("tcp", *worker3)
-	defer client3.Close()
-	client4, _ := rpc.Dial("tcp", *worker4)
-	defer client4.Close()
-	clients := []*rpc.Client{client1, client2, client3, client4}
-
-	var world [][]byte
-	turns := 0
-	paused := false
-	quit := false
-
-	listener, _ := net.Listen("tcp", ":"+*pAddr)
-	rpc.Register(&GOLOperations{World: world, Turns: turns, Paused: paused, Quit: quit, Workers: clients})
+	w1, _ := rpc.Dial("tcp", *worker1)
+	w2, _ := rpc.Dial("tcp", *worker2)
+	w3, _ := rpc.Dial("tcp", *worker3)
+	w4, _ := rpc.Dial("tcp", *worker4)
+	defer w1.Close()
+	defer w2.Close()
+	defer w3.Close()
+	defer w4.Close()
+	workers := []*rpc.Client{w1, w2, w3, w4}
+	listener, _ := net.Listen("tcp", ":"+*brokerAddr)
+	rpc.Register(&GOLOperations{Workers: workers})
 	defer listener.Close()
-
-	go func() {
-		<-kChan
-		for i := range clients {
-			clients[i].Call(stubs.KillWorkerHandler, stubs.EmptyRequest{}, new(stubs.EmptyResponse))
+	go rpc.Accept(listener)
+	<-Kchan
+	for i := range workers {
+		err := workers[i].Call(stubs.KillServerHandler, stubs.KillRequest{}, new(stubs.KillResponse))
+		if err != nil {
+			log.Fatal("Worker Kill Request Call Error:", err)
 		}
-		os.Exit(0)
-	}()
-
-	rpc.Accept(listener)
+	}
+	os.Exit(0)
 }

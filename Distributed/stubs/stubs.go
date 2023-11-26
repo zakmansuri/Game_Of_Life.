@@ -1,62 +1,52 @@
 package stubs
 
-import "uk.ac.bris.cs/gameoflife/util"
-
 var UpdateStateHandler = "GOLOperations.UpdateState"
-var TurnHandler = "WorkerOperations.CalculateNextState"
-var GetAliveCellsHandler = "GOLOperations.GetAliveCells"
-var CalculateTotalAliveCellsHandler = "GOLOperations.AliveCellCount"
-var GetCurrentStateHandler = "GOLOperations.ReturnCurrentState"
-var PausedGameHandler = "GOLOperations.PauseProcessing"
+var CalculateNextStateHandler = "GOLOperations.CalculateNextState"
+var CalcualteTotalAliveCells = "GOLOperations.CalculateTotalCells"
+var KeyPresshandler = "GOLOperations.PressedKey"
 var KillServerHandler = "GOLOperations.KillServer"
-var KillWorkerHandler = "WorkerOperations.KillServer"
-var KillProcessesHandler = "GOLOperations.KillProcesses"
+
+type StateRequest struct {
+	World [][]byte
+	Turns int
+	IMHT  int
+	IMWD  int
+}
 
 type StateResponse struct {
 	World [][]byte
 	Turns int
 }
 
-type StateRequest struct {
-	World       [][]byte
-	ImageHeight int
-	ImageWidth  int
-	Threads     int
-	Turns       int
-}
-
-type TurnRequest struct {
+type WorkerRequest struct {
 	Slice [][]byte
-	World [][]byte
 	Start int
 	End   int
 }
 
-type TurnResponse struct {
+type WorkerResponse struct {
 	Slice [][]byte
 }
 
-type AliveCellRequest struct {
-	ImageHeight int
-	ImageWidth  int
+type TotalCellRequest struct {
 }
 
-type AliveCellResponse struct {
-	Cells []util.Cell
+type TotalCellResponse struct {
+	AliveCells int
+	Turns      int
+}
+
+type KeyRequest struct {
+	Key rune
+}
+
+type KeyResponse struct {
+	World [][]byte
 	Turns int
 }
 
-type EmptyRequest struct {
+type KillRequest struct {
 }
 
-type QuitResponse struct {
-	MSG string
-}
-
-type EmptyResponse struct {
-}
-
-type CellCountResponse struct {
-	TotalCells    int
-	TurnsComplete int
+type KillResponse struct {
 }
