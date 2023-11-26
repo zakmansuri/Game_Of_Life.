@@ -216,6 +216,7 @@ func distributor(p Params, c distributorChannels) {
 			break
 		}
 		turn++
+		fmt.Println(totalAliveCells(world))
 	}
 
 	done <- false
