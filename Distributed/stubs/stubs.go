@@ -6,6 +6,9 @@ var CalcualteTotalAliveCells = "GOLOperations.CalculateTotalCells"
 var KeyPresshandler = "GOLOperations.PressedKey"
 var KillServerHandler = "GOLOperations.KillServer"
 
+// QuitHandler Fault tolerance
+var QuitHandler = "GOLOperations.QuitBroker"
+
 type StateRequest struct {
 	World [][]byte
 	Turns int
