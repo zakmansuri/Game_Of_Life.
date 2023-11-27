@@ -26,6 +26,8 @@ type GOLOperations struct {
 	Quit    bool
 	Paused  bool
 	Workers []*rpc.Client
+	// Fault tolerance
+	Continue bool
 }
 
 func totalAliveCells(w [][]byte) int {
@@ -123,6 +125,14 @@ func (g *GOLOperations) KillServer(req stubs.KillRequest, res *stubs.KillRespons
 	return
 }
 
+// QuitBroker Fault tolerance
+func (g *GOLOperations) QuitBroker(req stubs.KillRequest, res *stubs.KillResponse) (err error) {
+	g.Mu.Lock()
+	defer g.Mu.Unlock()
+	g.Continue = true
+	return
+}
+
 func (g *GOLOperations) PressedKey(req stubs.KeyRequest, res *stubs.KeyResponse) (err error) {
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
@@ -144,9 +154,12 @@ func (g *GOLOperations) PressedKey(req stubs.KeyRequest, res *stubs.KeyResponse)
 }
 
 func (g *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResponse) (err error) {
+	// Fault tolerance
 	g.Mu.Lock()
-	g.World = req.World
-	g.Turns = 0
+	if !g.Continue {
+		g.World = req.World
+		g.Turns = 0
+	}
 	g.Quit = false
 	g.Paused = false
 	g.Mu.Unlock()
@@ -185,7 +198,8 @@ func main() {
 	defer w4.Close()
 	workers := []*rpc.Client{w1, w2, w3, w4}
 	listener, _ := net.Listen("tcp", ":"+*brokerAddr)
-	rpc.Register(&GOLOperations{Workers: workers})
+	// Fault tolerance
+	rpc.Register(&GOLOperations{Workers: workers, Continue: false})
 	defer listener.Close()
 	go rpc.Accept(listener)
 	<-Kchan
