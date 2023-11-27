@@ -1,0 +1,7 @@
+goos: darwin
+goarch: arm64
+pkg: uk.ac.bris.cs/gameoflife
+BenchmarkStudentVersion/512x512x1000-1-8         	       1	1879061541 ns/op
+BenchmarkStudentVersion/512x512x1000-1-8         	2023/11/23 16:42:32 call error : connection is shut down
+exit status 1
+FAIL	uk.ac.bris.cs/gameoflife	4.296s
