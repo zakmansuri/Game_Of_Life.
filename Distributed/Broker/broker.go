@@ -178,7 +178,7 @@ func (g *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResp
 	return
 }
 
-//
+//exported functions to calculate the number of cells triggered by the ticker
 func (g *GOLOperations) CalculateTotalCells(req stubs.TotalCellRequest, res *stubs.TotalCellResponse) (err error) {
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
@@ -188,6 +188,7 @@ func (g *GOLOperations) CalculateTotalCells(req stubs.TotalCellRequest, res *stu
 }
 
 func main() {
+	//listens on port 8030 for distributor
 	brokerAddr := flag.String("port", "8030", "Port to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
@@ -199,6 +200,7 @@ func main() {
 	defer w2.Close()
 	defer w3.Close()
 	defer w4.Close()
+	//dials into every worker and adds them to the exported type list
 	workers := []*rpc.Client{w1, w2, w3, w4}
 	listener, _ := net.Listen("tcp", ":"+*brokerAddr)
 	// Fault tolerance
@@ -206,6 +208,7 @@ func main() {
 	defer listener.Close()
 	go rpc.Accept(listener)
 	<-Kchan
+	//waits for kill channel to be activated at which it kills off every client and then exits with code 0
 	for i := range workers {
 		err := workers[i].Call(stubs.KillServerHandler, stubs.KillRequest{}, new(stubs.KillResponse))
 		if err != nil {
