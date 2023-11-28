@@ -5,7 +5,7 @@
 **[Alternative perspective on interfaces in Go done by George](https://web.microsoftstream.com/video/30a6b464-aa7a-4e56-abf8-3534275440e3)**
 
 <!---
-**[Video Walkthrough of Distributed Component](https://web.microsoftstream.com/video/b4f92750-6f76-4f51-8d37-93413c3cb088)** 
+**[Video Walkthrough of Distributed-Extension Component](https://web.microsoftstream.com/video/b4f92750-6f76-4f51-8d37-93413c3cb088)** 
 -->
 <!-- **[Coursework Q&A Recording](https://web.microsoftstream.com/video/ab833321-3a78-4c83-b87e-16ce1b5c244f)** -->
 
@@ -137,7 +137,7 @@ Test the visualisation and control rules by running `go run .`
 - Briefly discuss your methodology for acquiring any results or measurements.
 
 <!---
-## Stage 2 - Distributed Implementation
+## Stage 2 - Distributed-Extension Implementation
 
 In this stage, you are required to create an implementation that uses a number of
 AWS nodes to cooperatively calculate the new state of the Game of Life board,
@@ -260,7 +260,7 @@ Recall that to process an iteration of Game of Life, each worker needs two extra
 
 Implement a Halo Exchange scheme, where workers communicate the halo regions directly to each other. Analyse the performance of your new solution and compare it with your previous implementation.
 
-### Parallel Distributed System
+### Parallel Distributed-Extension System
 
 ![Extension 2](content/cw_diagrams-Extensions_2.png)
 
@@ -268,7 +268,7 @@ Add parallel workers within each distributed AWS Node.
 
 Analyse the performance of your new solution and compare it with your previous implementation. Use various provided PGM images and analyse the effect on performance in context of the image size.
 
-### SDL Live View of Distributed Implementation
+### SDL Live View of Distributed-Extension Implementation
 
 Instead of showing a blank SDL window in your local controller, add support for a Live View, in a similar way to the parallel implementation. Try to keep your implementation as efficient as possible.
 
@@ -276,7 +276,7 @@ Analyse the performance of your new solution and compare it with your previous i
 
 ### Fault Tolerance
 
-Add fault tolerance to your Distributed Implementation.
+Add fault tolerance to your Distributed-Extension Implementation.
 
 In your report, explain the design of your fault tolerance mechanism. Conduct experiments to verify the effectiveness of your fault tolerance approach.
 
@@ -306,7 +306,7 @@ Additional marks are available for satisfying further success criteria, up to:
 
 70% - Satisfy *all* success criteria for this stage.
 
-### Distributed Implementation (35 marks)
+### Distributed-Extension Implementation (35 marks)
 
 40% - You must be able to demonstrate a distributed Game of Life implementation. It must be running a single AWS GoL Engine Node that is controlled by a locally running controller (see Step 1).
 
