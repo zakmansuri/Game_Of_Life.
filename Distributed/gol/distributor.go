@@ -83,11 +83,9 @@ func distributor(p Params, c distributorChannels) {
 			case <-ticker.C:
 				cellRequest := stubs.TotalCellRequest{}
 				cellResponse := new(stubs.TotalCellResponse)
-				err := client.Call(stubs.CalcualteTotalAliveCells, cellRequest, cellResponse)
-				if err != nil {
-					log.Fatal("Cell Request Call Error:", err)
-				}
+				_ = client.Call(stubs.CalcualteTotalAliveCells, cellRequest, cellResponse)
 				c.events <- AliveCellsCount{cellResponse.Turns, cellResponse.AliveCells}
+
 			case <-finished:
 				return
 			case command := <-c.keyPresses:
@@ -133,7 +131,6 @@ func distributor(p Params, c distributorChannels) {
 
 			}
 		}
-		ticker.Stop()
 	}()
 
 	err := client.Call(stubs.UpdateStateHandler, stateRequest, stateResponse)
