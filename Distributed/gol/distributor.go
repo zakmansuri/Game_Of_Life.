@@ -28,7 +28,7 @@ func calculateAliveCells(world [][]byte, IMHT, IMWD int) []util.Cell {
 	for y := 0; y < IMHT; y++ {
 		for x := 0; x < IMWD; x++ {
 			if world[y][x] == 0xFF {
-				slice = append(slice, util.Cell{y, x})
+				slice = append(slice, util.Cell{x, y})
 			}
 		}
 	}
@@ -40,7 +40,7 @@ func savePGMImage(c distributorChannels, w [][]byte, f string, IMHT, IMWD int) {
 	c.ioFilename <- f
 	for y := 0; y < IMHT; y++ {
 		for x := 0; x < IMWD; x++ {
-			c.ioOutput <- w[x][y]
+			c.ioOutput <- w[y][x]
 		}
 	}
 }
@@ -58,7 +58,7 @@ func distributor(p Params, c distributorChannels) {
 	}
 	for i := 0; i < p.ImageHeight; i++ {
 		for j := 0; j < p.ImageWidth; j++ {
-			world[j][i] = <-c.ioInput
+			world[i][j] = <-c.ioInput
 		}
 	}
 	stateRequest := stubs.StateRequest{
