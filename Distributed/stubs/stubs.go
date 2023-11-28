@@ -14,6 +14,7 @@ type StateRequest struct {
 	Turns int
 	IMHT  int
 	IMWD  int
+	Cont  bool
 }
 
 type StateResponse struct {
@@ -52,4 +53,11 @@ type KillRequest struct {
 }
 
 type KillResponse struct {
+}
+
+type QuitRequest struct {
+	Cont bool
+}
+
+type QuitResponse struct {
 }
