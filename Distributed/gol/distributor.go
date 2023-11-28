@@ -111,6 +111,10 @@ func distributor(p Params, c distributorChannels) {
 					}
 					finished <- true
 				case 'q':
+					err := client.Call(stubs.QuitHandler, stubs.KillRequest{}, new(stubs.KillResponse))
+					if err != nil {
+						log.Fatal("Quit Request Call Error:", err)
+					}
 					c.events <- StateChange{keyResponse.Turns, Quitting}
 					finished <- true
 				case 'p':

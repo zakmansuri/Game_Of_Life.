@@ -45,19 +45,6 @@ func totalAliveCells(w [][]byte) int {
 func calculateSlice(IMWD, start, end int, world [][]byte) [][]byte {
 	var newSlice [][]byte
 	dy := end - start
-	for i := 0; i < dy; i++ {
-		newSlice = append(newSlice, []byte{})
-		for j := 0; j < IMWD; j++ {
-
-			newSlice[i] = append(newSlice[i], world[start+i][j])
-		}
-	}
-	return newSlice
-}
-
-func calculateSlice2(IMWD, start, end int, world [][]byte) [][]byte {
-	var newSlice [][]byte
-	dy := end - start
 	newSlice = append(newSlice, []byte{})
 	if start == 0 {
 		for x := 0; x < IMWD; x++ {
@@ -97,14 +84,8 @@ func execute(world [][]byte, IMHT, IMWD int, workers []*rpc.Client) [][]byte {
 	var responseChannels = make([]chan [][]byte, len(workers))
 	var newWorld [][]byte
 	for i := 0; i < len(workers); i++ {
-		//Slice := calculateSlice(IMWD, i*dy, (i+1)*dy, world)
-		//Slice2 := calculateSlice2(IMWD, i*dy, (i+1)*dy, world)
-		//fmt.Println(Slice)
-		//fmt.Println(Slice2)
-		//fmt.Println(len(Slice2))
-		//fmt.Println("---------------------------")
 		request := stubs.WorkerRequest{
-			Slice: calculateSlice2(IMWD, i*dy, (i+1)*dy, world),
+			Slice: calculateSlice(IMWD, i*dy, (i+1)*dy, world),
 			Start: i * dy,
 			End:   (i + 1) * dy,
 		}
@@ -170,6 +151,9 @@ func (g *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResp
 			g.Turns++
 		}
 		g.Mu.Unlock()
+	}
+	if !g.Quit {
+		g.Continue = false
 	}
 	res.World = g.World
 	res.Turns = g.Turns
