@@ -178,12 +178,12 @@ func main() {
 	w1, _ := rpc.Dial("tcp", *worker1)
 	w2, _ := rpc.Dial("tcp", *worker2)
 	w3, _ := rpc.Dial("tcp", *worker3)
-	w4, _ := rpc.Dial("tcp", *worker4)
+	//w4, _ := rpc.Dial("tcp", *worker4)
 	defer w1.Close()
 	defer w2.Close()
 	defer w3.Close()
-	defer w4.Close()
-	workers := []*rpc.Client{w1, w2, w3, w4}
+	//defer w4.Close()
+	workers := []*rpc.Client{w1, w2, w3}
 	listener, _ := net.Listen("tcp", ":"+*brokerAddr)
 	rpc.Register(&GOLOperations{Workers: workers})
 	defer listener.Close()
