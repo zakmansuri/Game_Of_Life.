@@ -40,14 +40,19 @@ func totalAliveCells(w [][]byte) int {
 	return count
 }
 
-func calculateSlice(IMWD, start, end int, world [][]byte) [][]byte {
+func calculateSlice(IMWD, IMHT, start, end int, world [][]byte) [][]byte {
 	var newSlice [][]byte
 	dy := end - start
-	for i := 0; i < dy; i++ {
+	for y := 0; y < dy+2; y++ {
 		newSlice = append(newSlice, []byte{})
-		for j := 0; j < IMWD; j++ {
-
-			newSlice[i] = append(newSlice[i], world[start+i][j])
+		r := start + y - 1
+		if r < 0 {
+			r += IMHT
+		} else if r >= IMHT {
+			r -= IMHT
+		}
+		for x := 0; x < IMWD; x++ {
+			newSlice[y] = append(newSlice[y], world[r][x])
 		}
 	}
 	return newSlice
@@ -90,21 +95,28 @@ func worker(req stubs.WorkerRequest, res *stubs.WorkerResponse, client *rpc.Clie
 	channel <- res.Slice
 }
 
+func calculateHeights(IMHT, N int) []int {
+	dy := make([]int, N)
+	r := IMHT % N
+	x := IMHT / N
+	for i := 0; i < N; i++ {
+		dy[i] = x
+	}
+	dy[0] = dy[0] + r
+	return dy
+}
+
 func execute(world [][]byte, IMHT, IMWD int, workers []*rpc.Client) [][]byte {
-	dy := IMHT / len(workers)
+	dy := calculateHeights(IMHT, len(workers))
 	var responseChannels = make([]chan [][]byte, len(workers))
 	var newWorld [][]byte
 	for i := 0; i < len(workers); i++ {
-		//Slice := calculateSlice(IMWD, i*dy, (i+1)*dy, world)
-		//Slice2 := calculateSlice2(IMWD, i*dy, (i+1)*dy, world)
-		//fmt.Println(Slice)
-		//fmt.Println(Slice2)
-		//fmt.Println(len(Slice2))
-		//fmt.Println("---------------------------")
+		//Slice := calculateSlice2(IMWD, i*dy[i], (i+1)*dy[i], world)
+		EXPSlice := calculateSlice(IMWD, IMHT, i*dy[i], (i+1)*dy[i], world)
 		request := stubs.WorkerRequest{
-			Slice: calculateSlice2(IMWD, i*dy, (i+1)*dy, world),
-			Start: i * dy,
-			End:   (i + 1) * dy,
+			Slice: EXPSlice,
+			Start: i * dy[i],
+			End:   (i + 1) * dy[i],
 		}
 		response := new(stubs.WorkerResponse)
 		responseChannel := make(chan [][]byte)
