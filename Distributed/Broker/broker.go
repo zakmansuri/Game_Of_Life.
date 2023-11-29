@@ -91,7 +91,7 @@ func worker(req stubs.WorkerRequest, res *stubs.WorkerResponse, client *rpc.Clie
 }
 
 func execute(world [][]byte, IMHT, IMWD int, workers []*rpc.Client) [][]byte {
-	dy := []int{256, 256}
+	dy := []int{512}
 	var responseChannels = make([]chan [][]byte, len(workers))
 	var newWorld [][]byte
 	for i := 0; i < len(workers); i++ {
@@ -176,14 +176,14 @@ func main() {
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	w1, _ := rpc.Dial("tcp", *worker1)
-	w2, _ := rpc.Dial("tcp", *worker2)
+	//w2, _ := rpc.Dial("tcp", *worker2)
 	//w3, _ := rpc.Dial("tcp", *worker3)
 	//w4, _ := rpc.Dial("tcp", *worker4)
 	defer w1.Close()
-	defer w2.Close()
+	//defer w2.Close()
 	//defer w3.Close()
 	//defer w4.Close()
-	workers := []*rpc.Client{w1, w2}
+	workers := []*rpc.Client{w1}
 	listener, _ := net.Listen("tcp", ":"+*brokerAddr)
 	rpc.Register(&GOLOperations{Workers: workers})
 	defer listener.Close()
