@@ -91,7 +91,7 @@ func worker(req stubs.WorkerRequest, res *stubs.WorkerResponse, client *rpc.Clie
 }
 
 func execute(world [][]byte, IMHT, IMWD int, workers []*rpc.Client) [][]byte {
-	dy := IMHT / len(workers)
+	dy := []int{171, 171, 170}
 	var responseChannels = make([]chan [][]byte, len(workers))
 	var newWorld [][]byte
 	for i := 0; i < len(workers); i++ {
@@ -102,9 +102,9 @@ func execute(world [][]byte, IMHT, IMWD int, workers []*rpc.Client) [][]byte {
 		//fmt.Println(len(Slice2))
 		//fmt.Println("---------------------------")
 		request := stubs.WorkerRequest{
-			Slice: calculateSlice2(IMWD, i*dy, (i+1)*dy, world),
-			Start: i * dy,
-			End:   (i + 1) * dy,
+			Slice: calculateSlice2(IMWD, i*dy[i], (i+1)*dy[i], world),
+			Start: i * dy[i],
+			End:   (i + 1) * dy[i],
 		}
 		response := new(stubs.WorkerResponse)
 		responseChannel := make(chan [][]byte)

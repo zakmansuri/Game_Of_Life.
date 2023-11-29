@@ -1,3 +1,13 @@
-2023/11/29 18:40:45 Update State Call Error:unexpected EOF
-exit status 1
-FAIL	uk.ac.bris.cs/gameoflife	2.711s
+panic: runtime error: index out of range [510] with length 510
+
+goroutine 67 [running]:
+uk.ac.bris.cs/gameoflife/gol.calculateAliveCells(...)
+	/Users/georgecorfield/COMS20008/Coursework/Coursework/Game_Of_Life./Distributed/gol/distributor.go:30
+uk.ac.bris.cs/gameoflife/gol.distributor({0x3e8, 0x1, 0x200, 0x200}, {0x140000242a0, 0x14000024300, 0x14000024360, 0x140000243c0, 0x14000024480, 0x14000024420, ...})
+	/Users/georgecorfield/COMS20008/Coursework/Coursework/Game_Of_Life./Distributed/gol/distributor.go:146 +0x85c
+uk.ac.bris.cs/gameoflife/gol.Run({0x3e8, 0x1, 0x200, 0x200}, 0x140000242a0, 0x0)
+	/Users/georgecorfield/COMS20008/Coursework/Coursework/Game_Of_Life./Distributed/gol/gol.go:40 +0x1b4
+created by uk.ac.bris.cs/gameoflife.BenchmarkStudentVersion.func1
+	/Users/georgecorfield/COMS20008/Coursework/Coursework/Game_Of_Life./Distributed/my_benchmark_test.go:28 +0xcc
+exit status 2
+FAIL	uk.ac.bris.cs/gameoflife	9.524s
