@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="122fc855-707f-4397-836f-4efe1624d327" name="Changes" comment="Fixed Bugs some test still failing in go test -v" />
+    <list default="true" id="122fc855-707f-4397-836f-4efe1624d327" name="Changes" comment="Fixed Bugs some test still failing in go test -v">
+      <change beforePath="$PROJECT_DIR$/Distributed/my_benchmark_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/Distributed/my_benchmark_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Distributed/out/512x512x1000.pgm" beforeDir="false" afterPath="$PROJECT_DIR$/Distributed/out/512x512x1000.pgm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Distributed/results3.out" beforeDir="false" afterPath="$PROJECT_DIR$/Distributed/results3.out" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
