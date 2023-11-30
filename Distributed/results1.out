@@ -1,9 +1,0 @@
-goos: darwin
-goarch: arm64
-pkg: uk.ac.bris.cs/gameoflife
-BenchmarkStudentVersion/512x512x1000-1-8         	       1	3008255542 ns/op
-BenchmarkStudentVersion/512x512x1000-1-8         	       1	3021395208 ns/op
-BenchmarkStudentVersion/512x512x1000-1-8         	       1	3010597375 ns/op
-BenchmarkStudentVersion/512x512x1000-1-8         	       1	3007096792 ns/op
-BenchmarkStudentVersion/512x512x1000-1-8         	       1	3009050000 ns/op
-ok  	uk.ac.bris.cs/gameoflife	30.422s
