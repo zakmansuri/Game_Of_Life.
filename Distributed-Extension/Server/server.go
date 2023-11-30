@@ -64,7 +64,7 @@ func (g *GOLOperations) CalculateNextState(req stubs.WorkerRequest, res *stubs.W
 
 func main() {
 	//takes a port flag to listen on, each worker takes a different value
-	pAddr := flag.String("port", "8050", "Port to listen on")
+	pAddr := flag.String("port", "8040", "Port to listen on")
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 	rpc.Register(&GOLOperations{})
