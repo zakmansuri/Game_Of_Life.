@@ -3,12 +3,9 @@ package stubs
 //handlers for each GOL operation on broker and worker
 var UpdateStateHandler = "GOLOperations.UpdateState"
 var CalculateNextStateHandler = "GOLOperations.CalculateNextState"
-var CalcualteTotalAliveCells = "GOLOperations.CalculateTotalCells"
+var CalculateTotalAliveCells = "GOLOperations.CalculateTotalCells"
 var KeyPresshandler = "GOLOperations.PressedKey"
 var KillServerHandler = "GOLOperations.KillServer"
-
-// QuitHandler Fault tolerance
-var QuitHandler = "GOLOperations.QuitBroker"
 
 //set of structs for each handler with required variables inside
 type StateRequest struct {

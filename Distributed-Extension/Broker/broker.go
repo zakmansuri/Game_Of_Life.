@@ -29,8 +29,6 @@ type GOLOperations struct {
 	Quit    bool
 	Paused  bool
 	Workers []*rpc.Client
-	// Fault tolerance
-	Continue bool
 }
 
 //helper function to calculate total number of alive cells
@@ -71,6 +69,7 @@ func worker(req stubs.WorkerRequest, res *stubs.WorkerResponse, client *rpc.Clie
 	channel <- res.Slice
 }
 
+//function to calculate height of each slice
 func calculateHeights(IMHT, N int) []int {
 	dy := make([]int, N)
 	r := IMHT % N
@@ -87,6 +86,7 @@ func step(world [][]byte, IMHT, IMWD int, workers []*rpc.Client) [][]byte {
 	dy := calculateHeights(IMHT, len(workers))
 	responseChannels := make([]chan [][]byte, len(workers))
 	var newWorld [][]byte
+	//send request to each worker as go routine
 	for i := 0; i < len(workers); i++ {
 		request := stubs.WorkerRequest{
 			Slice: calculateSlice(IMWD, IMHT, i*dy[i], (i+1)*dy[i], world),
@@ -98,6 +98,7 @@ func step(world [][]byte, IMHT, IMWD int, workers []*rpc.Client) [][]byte {
 		responseChannels[i] = responseChannel
 		go worker(request, response, workers[i], responseChannel)
 	}
+	//receive all responses and put world back together
 	for i := 0; i < len(workers); i++ {
 		slice := <-responseChannels[i]
 		newWorld = append(newWorld, slice...)
@@ -110,14 +111,6 @@ func (g *GOLOperations) KillServer(req stubs.KillRequest, res *stubs.KillRespons
 	Kchan <- true
 	return
 }
-
-//// QuitBroker Fault tolerance
-//func (g *GOLOperations) QuitBroker(req stubs.QuitRequest, res *stubs.QuitResponse) (err error) {
-//	g.Mu.Lock()
-//	defer g.Mu.Unlock()
-//	g.Continue = req.Cont
-//	return
-//}
 
 //takes key press and deals with appropriate functions and returns world and turns
 func (g *GOLOperations) PressedKey(req stubs.KeyRequest, res *stubs.KeyResponse) (err error) {
@@ -162,9 +155,6 @@ func (g *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResp
 		g.Mu.Unlock()
 		//unlocks Mutex after every turn to allow other processes to access variables
 	}
-	if !g.Quit {
-		g.Continue = false
-	}
 	res.World = g.World
 	res.Turns = g.Turns
 	return
@@ -196,7 +186,7 @@ func main() {
 	workers := []*rpc.Client{w1, w2, w3, w4}
 	listener, _ := net.Listen("tcp", ":"+*brokerAddr)
 	// Fault tolerance
-	rpc.Register(&GOLOperations{Workers: workers, Continue: false})
+	rpc.Register(&GOLOperations{Workers: workers})
 	defer listener.Close()
 	go rpc.Accept(listener)
 	<-Kchan

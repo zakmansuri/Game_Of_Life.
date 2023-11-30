@@ -102,7 +102,7 @@ func distributor(p Params, c distributorChannels) {
 				cellRequest := stubs.TotalCellRequest{}
 				cellResponse := new(stubs.TotalCellResponse)
 				//call to broker to retrieve count of alive cells
-				_ = client.Call(stubs.CalcualteTotalAliveCells, cellRequest, cellResponse)
+				_ = client.Call(stubs.CalculateTotalAliveCells, cellRequest, cellResponse)
 				//report alive cell count to events
 				c.events <- AliveCellsCount{cellResponse.Turns, cellResponse.AliveCells}
 			case <-finished:
