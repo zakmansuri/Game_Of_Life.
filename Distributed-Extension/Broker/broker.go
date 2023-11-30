@@ -13,10 +13,10 @@ import (
 )
 
 //4 workers
-var worker1 = flag.String("worker1", "127.0.0.1:8050", "ip:port to connect to first worker")
-var worker2 = flag.String("worker2", "127.0.0.1:8051", "ip:port to connect to second worker")
-var worker3 = flag.String("worker3", "127.0.0.1:8052", "ip:port to connect to third worker")
-var worker4 = flag.String("worker4", "127.0.0.1:8053", "ip:port to connect to fourth worker")
+var worker1 = flag.String("worker1", "127.0.0.1:8040", "ip:port to connect to first worker")
+var worker2 = flag.String("worker2", "127.0.0.1:8041", "ip:port to connect to second worker")
+var worker3 = flag.String("worker3", "127.0.0.1:8042", "ip:port to connect to third worker")
+var worker4 = flag.String("worker4", "127.0.0.1:8043", "ip:port to connect to fourth worker")
 
 //channel used to kill broker
 var Kchan = make(chan bool)
@@ -47,38 +47,19 @@ func totalAliveCells(w [][]byte) int {
 }
 
 //calculates the slice required by the worker
-func calculateSlice(IMWD, start, end int, world [][]byte) [][]byte {
+func calculateSlice(IMWD, IMHT, start, end int, world [][]byte) [][]byte {
 	var newSlice [][]byte
 	dy := end - start
-	newSlice = append(newSlice, []byte{})
-	//adds the previous row to slice for calculation
-	if start == 0 {
-		for x := 0; x < IMWD; x++ {
-			newSlice[0] = append(newSlice[0], world[len(world)-1][x])
-		}
-	} else {
-		for x := 0; x < IMWD; x++ {
-			newSlice[0] = append(newSlice[0], world[start-1][x])
-		}
-	}
-
-	//adds the parts of the slice we want to change
-	for i := 0; i < dy; i++ {
+	for y := 0; y < dy+2; y++ {
 		newSlice = append(newSlice, []byte{})
-		for x := 0; x < IMWD; x++ {
-			newSlice[i+1] = append(newSlice[i+1], world[start+i][x])
+		r := start + y - 1
+		if r < 0 {
+			r += IMHT
+		} else if r >= IMHT {
+			r -= IMHT
 		}
-	}
-
-	//adds the next row to slice for calculation
-	newSlice = append(newSlice, []byte{})
-	if end == len(world) {
 		for x := 0; x < IMWD; x++ {
-			newSlice[dy+1] = append(newSlice[dy+1], world[0][x])
-		}
-	} else {
-		for x := 0; x < IMWD; x++ {
-			newSlice[dy+1] = append(newSlice[dy+1], world[end][x])
+			newSlice[y] = append(newSlice[y], world[r][x])
 		}
 	}
 	return newSlice
@@ -90,16 +71,27 @@ func worker(req stubs.WorkerRequest, res *stubs.WorkerResponse, client *rpc.Clie
 	channel <- res.Slice
 }
 
+func calculateHeights(IMHT, N int) []int {
+	dy := make([]int, N)
+	r := IMHT % N
+	x := IMHT / N
+	for i := 0; i < N; i++ {
+		dy[i] = x
+	}
+	dy[0] = dy[0] + r
+	return dy
+}
+
 //executes each worker using goroutine and retrieves slices to reconstruct next state
-func execute(world [][]byte, IMHT, IMWD int, workers []*rpc.Client) [][]byte {
-	dy := IMHT / len(workers)
-	var responseChannels = make([]chan [][]byte, len(workers))
+func step(world [][]byte, IMHT, IMWD int, workers []*rpc.Client) [][]byte {
+	dy := calculateHeights(IMHT, len(workers))
+	responseChannels := make([]chan [][]byte, len(workers))
 	var newWorld [][]byte
 	for i := 0; i < len(workers); i++ {
 		request := stubs.WorkerRequest{
-			Slice: calculateSlice(IMWD, i*dy, (i+1)*dy, world),
-			Start: i * dy,
-			End:   (i + 1) * dy,
+			Slice: calculateSlice(IMWD, IMHT, i*dy[i], (i+1)*dy[i], world),
+			Start: i * dy[i],
+			End:   (i + 1) * dy[i],
 		}
 		response := new(stubs.WorkerResponse)
 		responseChannel := make(chan [][]byte)
@@ -131,8 +123,6 @@ func (g *GOLOperations) KillServer(req stubs.KillRequest, res *stubs.KillRespons
 func (g *GOLOperations) PressedKey(req stubs.KeyRequest, res *stubs.KeyResponse) (err error) {
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
-	res.Turns = g.Turns
-	res.World = g.World
 	switch req.Key {
 	case 'p':
 		if g.Paused == false {
@@ -145,6 +135,8 @@ func (g *GOLOperations) PressedKey(req stubs.KeyRequest, res *stubs.KeyResponse)
 	case 'k':
 		g.Quit = true
 	}
+	res.Turns = g.Turns
+	res.World = g.World
 	return
 }
 
@@ -153,7 +145,7 @@ func (g *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResp
 	// Fault tolerance
 	g.Mu.Lock()
 	//only continues if continue flag is true, and if turns match
-	if !req.Cont || g.Turns == req.Turns || g.Turns == 0 {
+	if !req.Cont || g.Turns == req.Turns || g.Turns == 0 || req.IMHT != len(g.World) {
 		g.World = req.World
 		g.Turns = 0
 	}
@@ -164,7 +156,7 @@ func (g *GOLOperations) UpdateState(req stubs.StateRequest, res *stubs.StateResp
 		g.Mu.Lock()
 		if !g.Paused {
 			//calls execute for every turn to calculate new turn
-			g.World = execute(g.World, len(g.World), len(g.World[0]), g.Workers)
+			g.World = step(g.World, len(g.World), len(g.World[0]), g.Workers)
 			g.Turns++
 		}
 		g.Mu.Unlock()

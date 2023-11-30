@@ -58,38 +58,6 @@ func calculateSlice(IMWD, IMHT, start, end int, world [][]byte) [][]byte {
 	return newSlice
 }
 
-func calculateSlice2(IMWD, start, end int, world [][]byte) [][]byte {
-	var newSlice [][]byte
-	dy := end - start
-	newSlice = append(newSlice, []byte{})
-	if start == 0 {
-		for x := 0; x < IMWD; x++ {
-			newSlice[0] = append(newSlice[0], world[len(world)-1][x])
-		}
-	} else {
-		for x := 0; x < IMWD; x++ {
-			newSlice[0] = append(newSlice[0], world[start-1][x])
-		}
-	}
-	for i := 0; i < dy; i++ {
-		newSlice = append(newSlice, []byte{})
-		for x := 0; x < IMWD; x++ {
-			newSlice[i+1] = append(newSlice[i+1], world[start+i][x])
-		}
-	}
-	newSlice = append(newSlice, []byte{})
-	if end == len(world) {
-		for x := 0; x < IMWD; x++ {
-			newSlice[dy+1] = append(newSlice[dy+1], world[0][x])
-		}
-	} else {
-		for x := 0; x < IMWD; x++ {
-			newSlice[dy+1] = append(newSlice[dy+1], world[end][x])
-		}
-	}
-	return newSlice
-}
-
 func worker(req stubs.WorkerRequest, res *stubs.WorkerResponse, client *rpc.Client, channel chan [][]byte) {
 	client.Call(stubs.CalculateNextStateHandler, req, res)
 	channel <- res.Slice

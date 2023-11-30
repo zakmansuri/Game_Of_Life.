@@ -6,12 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="122fc855-707f-4397-836f-4efe1624d327" name="Changes" comment="Fixed Bugs some test still failing in go test -v">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Distributed-Extension/Broker/broker.go" beforeDir="false" afterPath="$PROJECT_DIR$/Distributed-Extension/Broker/broker.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Distributed/Broker/broker.go" beforeDir="false" afterPath="$PROJECT_DIR$/Distributed/Broker/broker.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Distributed/out/512x512x0.pgm" beforeDir="false" afterPath="$PROJECT_DIR$/Distributed/out/512x512x0.pgm" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Distributed/results1.out" beforeDir="false" afterPath="$PROJECT_DIR$/Distributed/results1.out" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Distributed/results2.out" beforeDir="false" afterPath="$PROJECT_DIR$/Distributed/results2.out" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Distributed/results3.out" beforeDir="false" afterPath="$PROJECT_DIR$/Distributed/results3.out" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Distributed/results4.out" beforeDir="false" afterPath="$PROJECT_DIR$/Distributed/results4.out" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
